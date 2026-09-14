@@ -41,7 +41,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { marketplaces, searchQuery } from "@/lib/marketplaces";
-import { referenceListings } from "@/lib/reference-listings";
+import { referenceListings, matchesReference } from "@/lib/reference-listings";
+import { resaleResearchFor, resaleCheckedAt } from "@/lib/resale-research";
+import { emptySearchPresentation } from "@/lib/search-presentation";
 import {
   GatReferenceImage,
   SourcingDirectory,
@@ -85,7 +87,7 @@ type Connections = { ebay: boolean; search: boolean; vision: boolean };
 export default function Finder() {
   const [query, setQuery] = useState(initialQuery),
     [searched, setSearched] = useState(initialQuery),
-    [lane, setLane] = useState<Lane>("reps");
+    [lane, setLane] = useState<Lane>("legit");
   const [listings, setListings] = useState<Listing[]>([]),
     [selected, setSelected] = useState<Listing | null>(null);
   const [manualListings, setManualListings] = useState<Listing[]>([]),
@@ -108,6 +110,14 @@ export default function Finder() {
     }),
     [settings, setSettings] = useState(false),
     [importOpen, setImportOpen] = useState(false);
+  const [connectionsChecked, setConnectionsChecked] = useState(false);
+  const [setupFailed, setSetupFailed] = useState(false);
+  const [searchIssue, setSearchIssue] = useState<"failed" | "cancelled" | null>(
+    null,
+  );
+  const [submittedFields, setSubmittedFields] = useState<
+    Partial<ItemIntent["fields"]>
+  >({});
   const fileInput = useRef<HTMLInputElement>(null);
   const request = useRef<AbortController | null>(null);
   const requestId = useRef(0);
@@ -131,6 +141,8 @@ export default function Finder() {
     setSearched(gatDemo.query);
     setLane("reps");
     setTargetFields({});
+    setSubmittedFields({});
+    setSearchIssue(null);
     setListings([]);
     setRun(null);
     setPlatform("all");
@@ -142,9 +154,13 @@ export default function Finder() {
   }
   useEffect(() => {
     fetch("/api/status")
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) throw new Error("Status unavailable");
+        return r.json();
+      })
       .then((value) => setConnections(value as Connections))
-      .catch(() => {});
+      .then(() => setConnectionsChecked(true))
+      .catch(() => setSetupFailed(true));
     return () => {
       request.current?.abort();
       visionRequest.current?.abort();
@@ -172,6 +188,8 @@ export default function Finder() {
       setListings([]);
       setRun(null);
       setTargetFields(fields);
+      setSubmittedFields(fields);
+      setSearchIssue(null);
       setMessage("Searching connected sources…");
       try {
         const response = await fetch("/api/search", {
@@ -197,6 +215,7 @@ export default function Finder() {
       } catch (error) {
         if (controller.signal.aborted) return;
         setListings([]);
+        setSearchIssue("failed");
         setMessage(
           error instanceof Error
             ? error.message
@@ -212,6 +231,7 @@ export default function Finder() {
     request.current?.abort();
     requestId.current++;
     setBusy(false);
+    setSearchIssue("cancelled");
     setMessage("Search cancelled. You can refine the target and try again.");
   }
   async function photoData() {
@@ -403,6 +423,40 @@ export default function Finder() {
         l.availability !== "sold-out",
     )
     .sort((a, b) => a.price! - b.price!)[0];
+  const showingReferences = allListings.some((l) => l.source === "research");
+  const resaleExamples = resaleResearchFor(searched, lane, submittedFields).map(
+    (l) => withSellerCorrection(l, overrides[l.id]),
+  );
+  const filteredResale = resaleExamples
+    .filter(
+      (l) =>
+        (platform === "all" || l.platform === platform) &&
+        (size === "all" || l.size === size) &&
+        (!budget ||
+          (l.currency === "USD" &&
+            l.price !== null &&
+            l.price <= Number(budget))),
+    )
+    .sort((a, b) =>
+      sort === "trust"
+        ? (scoreListing(b).score ?? -1) - (scoreListing(a).score ?? -1)
+        : sort === "price"
+          ? (a.currency === "USD" ? (a.price ?? Infinity) : Infinity) -
+            (b.currency === "USD" ? (b.price ?? Infinity) : Infinity)
+          : (b.matchAssessment?.rank ?? 0) - (a.matchAssessment?.rank ?? 0),
+    );
+  const emptyState = emptySearchPresentation({
+    run,
+    configured: connectionsChecked
+      ? lane === "reps"
+        ? connections.search
+        : connections.search || connections.ebay
+      : null,
+    issue: searchIssue,
+    setupFailed,
+    hasFilteredListings:
+      allListings.some((l) => l.lane === lane) && results.length === 0,
+  });
   return (
     <div className="finder-shell">
       <header className="topbar">
@@ -649,7 +703,7 @@ export default function Finder() {
               </div>
             </details>
             <div className="section-kicker">
-              <SlidersHorizontal size={14} /> REFINE LIVE RESULTS
+              <SlidersHorizontal size={14} /> REFINE RESULTS
             </div>
             <label className="field-label">
               Item size
@@ -661,7 +715,7 @@ export default function Finder() {
                   <SelectItem value="all">All sizes</SelectItem>
                   {[
                     ...new Set(
-                      allListings
+                      [...allListings, ...resaleExamples]
                         .filter((l) => l.lane === lane)
                         .map((l) => l.size),
                     ),
@@ -729,12 +783,16 @@ export default function Finder() {
               <div>
                 <div className="section-kicker">
                   {lane === "legit"
-                    ? "THE SHORTLIST"
+                    ? showingReferences
+                      ? "DATED REFERENCE COLLECTION"
+                      : "LIVE MARKETPLACE SEARCH"
                     : "ADDITIONAL LIVE DISCOVERY"}
                 </div>
                 <h2>
                   {lane === "legit"
-                    ? "Worth a closer look."
+                    ? showingReferences
+                      ? "Researched jeans examples."
+                      : "Search resale listings."
                     : "Search the marketplaces."}
                 </h2>
               </div>
@@ -767,9 +825,14 @@ export default function Finder() {
                 <strong>{results.length}</strong>{" "}
                 {lane === "reps"
                   ? "additional listings"
-                  : results.length === 1
-                    ? "listing"
-                    : "listings"}
+                  : showingReferences
+                    ? "reference / session listings"
+                    : results.length === 1
+                      ? "retrieved listing"
+                      : "retrieved listings"}
+                {resaleExamples.length > 0 && (
+                  <span> · {filteredResale.length} researched below</span>
+                )}
                 {lowest && (
                   <>
                     {" "}
@@ -851,7 +914,7 @@ export default function Finder() {
                 ))}
               </div>
             )}
-            {!busy && lane === "legit" && (
+            {!busy && lane === "legit" && matchesReference(searched) && (
               <button
                 className="reference-load"
                 onClick={() => {
@@ -860,6 +923,8 @@ export default function Finder() {
                   setSearched("Rick Owens bias bootcut jeans");
                   setImage("/reference-jeans.png");
                   setTargetFields({});
+                  setSubmittedFields({});
+                  setSearchIssue(null);
                   setRun(null);
                   setPlatform("all");
                   setSize("all");
@@ -870,11 +935,11 @@ export default function Finder() {
                     ),
                   );
                   setMessage(
-                    "EXAMPLE COLLECTION · observed September 12, 2026. These are dated research snapshots. Recheck every price and availability.",
+                    "EXAMPLE COLLECTION · observed September 13, 2026 UTC. These are dated research snapshots. Recheck every price and availability.",
                   );
                 }}
               >
-                Load dated jeans examples · Sep 12, 2026
+                Load dated jeans examples · Sep 13, 2026 UTC
               </button>
             )}
             {busy ? (
@@ -898,18 +963,55 @@ export default function Finder() {
               <div className="empty-results">
                 <Search size={28} />
                 <h3>
-                  {platform !== "all" || size !== "all" || budget
-                    ? "No listings match these filters."
-                    : lane === "reps"
-                      ? "Start with a marketplace search."
-                      : "Your next find is out there."}
+                  {showingReferences
+                    ? "No reference examples match these filters."
+                    : emptyState.title}
                 </h3>
                 <p>
-                  {lane === "reps"
-                    ? "Browse candidates below, then add a listing to evaluate the seller and estimate its delivered cost."
-                    : "Open a marketplace below or connect live search. Missing results do not mean the item is unavailable."}
+                  {showingReferences
+                    ? "Clear your filters to see the dated reference collection."
+                    : emptyState.body}
                 </p>
               </div>
+            )}
+            {resaleExamples.length > 0 && (
+              <section
+                className="resale-research"
+                aria-label="Researched GAT resale listings"
+              >
+                <div className="results-heading">
+                  <div>
+                    <span className="section-kicker">
+                      FOUND ON SECONDHAND MARKETPLACES
+                    </span>
+                    <h2>Pre-owned GATs to check out.</h2>
+                  </div>
+                </div>
+                <p className="resale-research-note">
+                  {filteredResale.length} of {resaleExamples.length} researched
+                  listings · checked {resaleCheckedAt} UTC. These dated
+                  public-page observations are separate from live search.
+                  Recheck stock, size and price; colorways and condition vary.
+                  Marketplace, size, budget and sorting controls apply here too.
+                </p>
+                {filteredResale.length ? (
+                  <div className="listing-grid">
+                    {filteredResale.map((listing) => (
+                      <ListingCard
+                        key={listing.id}
+                        listing={listing}
+                        lowest={false}
+                        onSelect={() => setSelected(listing)}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <p className="resale-research-note">
+                    No researched examples match these filters. Clear the
+                    filters to see the collection.
+                  </p>
+                )}
+              </section>
             )}
             {lane === "reps" && <CostCalculator />}
             <div className="marketplace-heading">
@@ -1245,7 +1347,10 @@ function ListingDetails({
           <dd>
             {l.evidence.positiveRate === null
               ? "Unknown"
-              : `${Math.round(l.evidence.positiveRate * 100)}%`}
+              : new Intl.NumberFormat("en-US", {
+                  style: "percent",
+                  maximumFractionDigits: 2,
+                }).format(l.evidence.positiveRate)}
           </dd>
           <dt>Account age</dt>
           <dd>

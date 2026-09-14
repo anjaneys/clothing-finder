@@ -139,6 +139,15 @@ export const marketplaces: Marketplace[] = [
     search: (q) => `https://jp.mercari.com/search?keyword=${enc(q)}`,
   },
   {
+    id: "mercari_us",
+    name: "Mercari US",
+    domain: "mercari.com",
+    lanes: ["legit"],
+    route: "Direct / US",
+    hint: "US resale · check buyer fees",
+    search: (q) => `https://www.mercari.com/search/?keyword=${enc(q)}`,
+  },
+  {
     id: "rakuma",
     name: "Rakuma",
     domain: "fril.jp",

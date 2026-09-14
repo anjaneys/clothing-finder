@@ -55,6 +55,9 @@ export function identifyListingUrl(
     case "poshmark":
       itemId = path.match(/^\/listing\/.+-([a-f0-9]{24})/i)?.[1] ?? null;
       break;
+    case "mercari_us":
+      itemId = path.match(/^\/us\/item\/(m\d+)\/?$/)?.[1] ?? null;
+      break;
     case "mercari":
       itemId =
         path.match(/^\/item\/(m\d+)/)?.[1] ??

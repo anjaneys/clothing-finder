@@ -53,6 +53,18 @@ response = await post("/api/search", {
 body = await response.json();
 if (!status.ebay && !status.search) assert.equal(body.listings.length, 0);
 response = await post("/api/search", {
+  query: "Maison Margiela GAT sneakers",
+  lane: "legit",
+});
+body = await response.json();
+if (!status.ebay && !status.search) {
+  assert.equal(body.listings.length, 0);
+  assert.ok(
+    body.run.sources.every((source) => source.state === "not_configured"),
+  );
+}
+assert.ok(body.listings.every((listing) => listing.source !== "research"));
+response = await post("/api/search", {
   query: "Rick Owens bias bootcut jeans",
   lane: "reps",
 });

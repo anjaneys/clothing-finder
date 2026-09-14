@@ -2,7 +2,7 @@
 
 A clothing discovery workspace with Legit and Reps views, title/image inputs, researched resale listings, seller evidence, and a proxy cost calculator.
 
-[Roadmap](ROADMAP.md) · [GAT supplier research](docs/GAT-SOURCING.md) · [More marketplaces](docs/RESEARCH.md) · [CI](https://github.com/anjaneys/clothing-finder/actions/workflows/ci.yml)
+[Roadmap](ROADMAP.md) · [GAT resale](docs/GAT-RESALE.md) · [GAT suppliers](docs/GAT-SOURCING.md) · [More marketplaces](docs/RESEARCH.md) · [CI](https://github.com/anjaneys/clothing-finder/actions/workflows/ci.yml)
 
 **Status: retrieval foundation implemented; provider-account validation pending.** Live adapters need provider credentials and account testing. Research snapshots and source handoffs are labelled separately from live API results. The roadmap documents planned work, not capabilities already delivered.
 
@@ -30,7 +30,8 @@ npm start
 ## Included
 
 - Title search and marketplace handoffs: Grailed, Depop, eBay, Vinted, Facebook Marketplace, Etsy, Poshmark, Mercari Japan, Rakuma and Yahoo! Auctions.
-- Default **Maison Margiela GAT demo** in Reps: seven dated product/catalog links, with filters for single-pair shops, replica leads, bulk factories and seller location. Each card shows available prices, order minimums, size/material differences, shipping routes and inspectable evidence. Independent brands are labelled separately from replicas.
+- Default **Maison Margiela GAT demo** in Legit: six researched secondhand listings on Poshmark, Depop, Mercari US, Grailed and eBay. Prices, sizes, condition and available seller observations are linked to their source. Research is separate from live provider results; unconfigured or failed searches do not imply no resale inventory.
+- Reps keeps seven dated product/catalog links, with filters for single-pair shops, replica leads, bulk factories and seller location. Each card shows available prices, order minimums, size/material differences, shipping routes and inspectable evidence. Independent brands are labelled separately from replicas.
 - Reps discovery covers Taobao, 1688, Weidian, MADEN, NOVESTA Japan, Made-in-China, Bona Shoes and Huangxuan. Chinese marketplace queries and English direct-shop/factory queries use GAT terms for this demo. Existing Rick Owens jeans expansion remains supported.
 - An explicit **Load dated jeans examples** button loads four real Rick Owens research snapshots, with prices, seller evidence and source links. Two close degrade matches and two solid-black alternatives. These are not guaranteed live inventory.
 - Marketplace, item-size and USD budget filters for additional live listings; match, USD price and trust sorting. The supplier directory has its own purchase/location filters and does not mix bulk quotes into individual deal ranking. Unknown/non-USD prices are hidden by the live USD budget filter and sorted after priced USD results.
@@ -89,7 +90,7 @@ eBay net feedback score is separate from seller review and sales counts, may be 
 
 React/TypeScript on Vinext/Vite with Cloudflare-compatible output. The source repository is public; the application runs locally. No public application deployment is configured.
 
-GitHub Actions installs from the lockfile, checks TypeScript, runs 57 provider/identity/evidence/scoring/sourcing tests, builds the app, and smoke-tests the API without paid provider credentials.
+GitHub Actions installs from the lockfile, checks TypeScript, runs 66 provider/identity/evidence/scoring/sourcing/presentation tests, builds the app, and smoke-tests the API without paid provider credentials.
 
 ## Research
 

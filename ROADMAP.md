@@ -42,7 +42,7 @@ Limitations: provider credentials are required; live adapters have not been test
 - [x] Structural listing ID extraction, tracking cleanup, variation-preserving eBay offer identity and richer-evidence deduplication.
 - [x] Dated examples load only through an explicit button; search failures never substitute them.
 
-**Validation:** 57 offline unit tests and API smoke checks cover success, malformed rows/envelopes, expired credentials, 429, deadlines, empty pages, pagination, queued cancellation, shared token recovery, partial-source failure, caching, evidence semantics and supplier discovery. Fixtures are synthetic contract fixtures, not recorded production traffic. Browser checks cover setup/error states, example separation and supplier filters. Production-account exit checks remain open.
+**Validation:** 66 offline unit tests and API smoke checks cover success, malformed rows/envelopes, expired credentials, 429, deadlines, empty pages, pagination, queued cancellation, shared token recovery, partial-source failure, caching, evidence semantics and supplier discovery. Fixtures are synthetic contract fixtures, not recorded production traffic. Browser checks cover setup/error states, example separation and supplier filters. Production-account exit checks remain open.
 
 ### M2 — Find the right garment
 
@@ -87,6 +87,8 @@ Foundation added: eBay net feedback score is now separate from reviews and sales
 **Exit checks:** deterministic multi-currency fixtures agree after rounding; incomplete totals cannot win a “cheapest delivered” badge. A change in destination, proxy or quote currency invalidates old costs. The user can trace each fee to a quote/source and observation date.
 
 ### M5 — Expand coverage deliberately
+
+**Resale correction:** the default Legit GAT view now contains six [dated secondhand observations](docs/GAT-RESALE.md), including lower-priced Poshmark examples, independently of provider results. Mercari US is separate from Japanese Mercari. Live empty states distinguish setup, failure, cancellation and no returned matches; snapshots never become live results or lowest-price benchmarks.
 
 **Implemented v0.3 slice:** [Margiela GAT sourcing directory](docs/GAT-SOURCING.md) with two single-pair shops, one unverified Taobao replica lead and four Chinese manufacturer/catalog leads. Product links, company/policy sources, access limitations, order minimums and evidence gaps are inspectable. Five new domains join indexed discovery and all Reps source filters remain accessible. No supplier is authenticated, and live provider-account validation remains open.
 

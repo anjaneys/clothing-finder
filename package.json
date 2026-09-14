@@ -1,12 +1,12 @@
 {
   "name": "clothing-finder",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "private": true,
   "engines": {
     "node": ">=22.13.0"
   },
   "scripts": {
-    "test": "node --experimental-strip-types --test tests/scoring.test.ts tests/providers.test.ts tests/identity.test.ts tests/sourcing.test.ts",
+    "test": "node --experimental-strip-types --test tests/scoring.test.ts tests/providers.test.ts tests/identity.test.ts tests/sourcing.test.ts tests/resale.test.ts",
     "test:api": "node tests/api-smoke.mjs",
     "typecheck": "tsc --noEmit",
     "install:ci": "node scripts/install-ci.mjs",
