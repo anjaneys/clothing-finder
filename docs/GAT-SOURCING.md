@@ -1,6 +1,6 @@
 # Margiela GAT supplier research
 
-Checked September 14, 2026 UTC / September 13 New York. These are dated research leads, not live stock or quality guarantees. The app defaults to this demo in Reps and keeps its directory separate from additional live discovery.
+Checked September 14, 2026 UTC / September 13 New York. These are dated research leads, not live stock or quality guarantees. The Reps tab shows this supplier directory separately from additional live discovery. The app opens in Legit with [secondhand GAT examples](GAT-RESALE.md).
 
 The target is the white leather/suede [Maison Margiela Replica sneaker, S57WS0236P1895101](https://www.maisonmargiela.com/en-us/replica-sneakers-8053833630021.html). “Replica” is also its official model name. Shared GAT styling does not establish shared manufacturing, materials or Margiela affiliation.
 
