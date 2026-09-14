@@ -1,9 +1,11 @@
 import type { Lane, Listing } from "../finder-types.ts";
+import type { Continuation, Coverage, SourceCursors } from "./pagination.ts";
 
-export type ProviderId = "ebay" | "brave";
+export type ProviderId = "ebay" | "brave" | "poshmark";
 export type SourceState =
   | "not_configured"
   | "not_applicable"
+  | "not_requested"
   | "ok"
   | "empty"
   | "partial"
@@ -22,7 +24,7 @@ export interface SourceDefinition {
   operations: readonly ("text" | "image" | "detail")[];
   lanes: readonly Lane[];
   region: string;
-  access: "authorized_api" | "licensed_search_index";
+  access: "authorized_api" | "licensed_search_index" | "public_page";
   timeoutMs: number;
   maxPages: number;
   maxRequests: number;
@@ -48,6 +50,8 @@ export interface SourceStatus {
   errorCode?: SourceState;
   operation?: "text" | "image";
   queryTruncated?: boolean;
+  next?: SourceCursors[ProviderId];
+  coverage?: Coverage;
 }
 
 export interface SearchRun {
@@ -70,6 +74,7 @@ export interface SearchInput {
   lane: Lane;
   signal?: AbortSignal;
   imageBase64?: string;
+  continuation?: Continuation;
 }
 export interface SearchAdapter {
   definition: SourceDefinition;
@@ -89,6 +94,7 @@ export interface RuntimeOptions {
 
 export const sourceMessages: Record<SourceState, string> = {
   not_configured: "Credentials have not been configured.",
+  not_requested: "This source has no further pages in this search.",
   not_applicable: "This source does not support this section or search method.",
   ok: "Source returned results. Check item details and availability.",
   empty: "The source returned no matching listings.",

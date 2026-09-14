@@ -17,6 +17,7 @@ export function searchSources(
       clientSecret: config("EBAY_CLIENT_SECRET"),
       accessToken: config("EBAY_ACCESS_TOKEN"),
     },
+    publicSearch: config("POSHMARK_PUBLIC_SEARCH") !== "false",
     braveKey: config("BRAVE_SEARCH_API_KEY"),
     cache: { ebay: cacheTTL("EBAY"), brave: cacheTTL("BRAVE") },
   };

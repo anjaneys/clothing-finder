@@ -1,10 +1,12 @@
 import { z } from "zod";
+import { cursorSchema, searchScope } from "@/lib/discovery/pagination";
 import { readJson } from "@/lib/server-config";
 import { searchSources } from "@/lib/search-providers";
 import { intentFields } from "@/lib/item-intent";
 
 const schema = z
   .object({
+    continuation: cursorSchema.optional(),
     query: z.string().trim().min(2).max(180),
     lane: z.enum(["legit", "reps"]),
     fields: z
@@ -44,7 +46,7 @@ export async function POST(request: Request) {
       },
       { status: 400 },
     );
-  const { query, lane, fields, image } = parsed.data;
+  const { query, lane, fields, image, continuation } = parsed.data;
   const imageBase64 = image?.split(",")[1];
   if (
     imageBase64 &&
@@ -58,8 +60,17 @@ export async function POST(request: Request) {
       { error: "Photo search supports Legit and images up to 5 MB." },
       { status: 400 },
     );
+  if (
+    continuation &&
+    continuation.scope !==
+      (await searchScope({ query, lane, imageBase64 }, fields ?? {}))
+  )
+    return Response.json(
+      { error: "Continuation does not match this search. Start a new search." },
+      { status: 400 },
+    );
   const body = await searchSources(
-    { query, lane, imageBase64, signal: request.signal },
+    { query, lane, imageBase64, continuation, signal: request.signal },
     fields ?? {},
   );
   return Response.json(body, { headers: { "Cache-Control": "no-store" } });

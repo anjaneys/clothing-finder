@@ -40,3 +40,7 @@
 @media(max-width:1000px){.supplier-grid{grid-template-columns:1fr}.supplier-visual{height:260px}.sourcing-intro h2{font-size:30px}}
 @media(max-width:760px){.sourcing-intro{padding:20px}.sourcing-heading{flex-wrap:wrap}.sourcing-intro h2{font-size:29px}.sourcing-count{font-size:10px}.sourcing-tabs{display:grid;grid-template-columns:1fr 1fr;width:100%}.sourcing-tabs button{justify-content:space-between}.sourcing-controls{align-items:stretch}.supplier-visual{height:230px}.supplier-body{padding:18px}.sourcing-directory{margin-bottom:30px}.sourcing-country{justify-content:space-between;width:100%}}
 .resale-research{margin-top:30px;padding-top:24px;border-top:1px solid var(--border)}.resale-research-note{font-size:12px;line-height:1.7;color:#737e66;margin:0 0 20px}.results-column:has(.resale-research)>.empty-results{min-height:145px;padding:22px}
+
+.pagination-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin: 20px 0; font-size: 13px; }
+.pagination-controls span { flex: 1 1 220px; }
+.resale-research > summary { cursor: pointer; padding: 12px 0; font-weight: 600; }

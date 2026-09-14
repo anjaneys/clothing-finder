@@ -71,7 +71,7 @@ export function recordEvidence(listing: Listing, method?: Provenance): Listing {
   const observedAt = listing.observedAt ?? listing.checkedAt;
   const expiresAt =
     listing.expiresAt ??
-    (provenance === "live_api"
+    (["live_api", "public_page"].includes(provenance)
       ? new Date(Date.parse(observedAt) + 15 * 60000).toISOString()
       : null);
   const observation = (
@@ -135,6 +135,8 @@ export function freshness(listing: Listing, now = Date.now()) {
     return "Reference snapshot";
   if (listing.expiresAt && Date.parse(listing.expiresAt) <= now)
     return "Needs recheck";
+  if (listing.provenance === "public_page")
+    return "Recent public-page observation";
   return listing.provenance === "indexed_page"
     ? "Indexed page · stock unknown"
     : listing.source === "manual"

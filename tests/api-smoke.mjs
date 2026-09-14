@@ -7,7 +7,12 @@ const post = (path, body, headers = {}) =>
     body: JSON.stringify(body),
   });
 const status = await (await fetch(base + "/api/status")).json();
-assert.deepEqual(Object.keys(status).sort(), ["ebay", "search", "vision"]);
+assert.deepEqual(Object.keys(status).sort(), [
+  "ebay",
+  "poshmark",
+  "search",
+  "vision",
+]);
 let response = await post("/api/search", {
   query: "Rick Owens bias bootcut jeans",
   lane: "legit",
@@ -17,10 +22,10 @@ assert.equal(response.status, 200);
 assert.equal(response.headers.get("cache-control"), "no-store");
 let body = await response.json();
 assert.ok(Array.isArray(body.listings));
-assert.equal(body.run.sources.length, 2);
+assert.equal(body.run.sources.length, 3);
 assert.equal(body.intent.fields.finish, "Degrade");
 assert.equal(body.intent.fields.size, null);
-if (!status.ebay && !status.search) {
+if (!status.ebay && !status.search && !status.poshmark) {
   assert.equal(body.mode, "links");
   assert.equal(body.listings.length, 0);
   assert.ok(
@@ -51,13 +56,14 @@ response = await post("/api/search", {
   lane: "legit",
 });
 body = await response.json();
-if (!status.ebay && !status.search) assert.equal(body.listings.length, 0);
+if (!status.ebay && !status.search && !status.poshmark)
+  assert.equal(body.listings.length, 0);
 response = await post("/api/search", {
   query: "Maison Margiela GAT sneakers",
   lane: "legit",
 });
 body = await response.json();
-if (!status.ebay && !status.search) {
+if (!status.ebay && !status.search && !status.poshmark) {
   assert.equal(body.listings.length, 0);
   assert.ok(
     body.run.sources.every((source) => source.state === "not_configured"),

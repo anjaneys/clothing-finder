@@ -1,10 +1,12 @@
 import type { SearchRun } from "./discovery/types.ts";
+import type { Continuation } from "./discovery/pagination.ts";
 import type { ItemIntent, MatchAssessment } from "./item-intent.ts";
 
 export type Lane = "legit" | "reps";
 export type Provenance =
   | "live_api"
   | "indexed_page"
+  | "public_page"
   | "manual_input"
   | "reference_snapshot";
 export type EvidenceObservation = {
@@ -81,4 +83,5 @@ export type SearchResponse = {
   errors: string[];
   run?: SearchRun;
   intent?: ItemIntent;
+  continuation?: Continuation;
 };

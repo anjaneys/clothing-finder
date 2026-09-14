@@ -1,3 +1,5 @@
+import { searchScope } from "./pagination.ts";
+import type { Continuation } from "./pagination.ts";
 import type { SearchResponse } from "../finder-types.ts";
 import { deduplicateListings } from "../listing-identity.ts";
 import { assessMatch, parseIntent, type ItemIntent } from "../item-intent.ts";
@@ -10,6 +12,9 @@ export async function discover(
 ): Promise<SearchResponse> {
   const startedAt = new Date().toISOString();
   const intent = parseIntent(input.query, fields);
+  const scope = await searchScope(input, fields);
+  if (input.continuation && input.continuation.scope !== scope)
+    throw new Error("Continuation does not match the submitted search.");
   const results = await Promise.all(
     adapters.map((adapter) => adapter.search(input)),
   );
@@ -23,10 +28,12 @@ export async function discover(
     }))
     .sort((a, b) => b.matchAssessment.rank - a.matchAssessment.rank);
   const applicable = sources.filter(
-    (source) => source.state !== "not_applicable",
+    (source) => !["not_applicable", "not_requested"].includes(source.state),
   );
-  const healthy = applicable.filter((source) =>
-    ["ok", "empty"].includes(source.state),
+  const healthy = applicable.filter(
+    (source) =>
+      ["ok", "empty"].includes(source.state) &&
+      (!source.coverage || source.coverage === "exhausted"),
   );
   const status: SearchRun["status"] = input.signal?.aborted
     ? "cancelled"
@@ -35,7 +42,13 @@ export async function discover(
       : listings.length || healthy.length
         ? "partial"
         : "unavailable";
+  const next = Object.fromEntries(
+    sources.filter((s) => s.next).map((s) => [s.id, s.next]),
+  ) as Continuation["sources"];
   return {
+    ...(Object.keys(next).length
+      ? { continuation: { version: 1 as const, scope, sources: next } }
+      : {}),
     listings,
     intent,
     mode: listings.length ? "live" : "links",

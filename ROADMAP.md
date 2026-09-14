@@ -38,11 +38,12 @@ Limitations: provider credentials are required; live adapters have not been test
 - [x] Schema validation, partial recovery, cancellation through queue/fetch/body/backoff, bounded retries, Retry-After/Brave quota windows, opt-in permitted memory caching and circuit cooldowns.
 - [x] Coalesced server-side eBay application tokens, expiry-aware re-minting and one rejected-token recovery. Legacy bearer token remains optional.
 - [ ] Validate real production eBay eligibility, quotas and successful text/photo requests using the owner's configured account; verify Brave account access/storage terms.
-- [x] Bounded eBay item-offset and Brave page-index pagination, language/source groups, and source errors alongside healthy results.
+- [x] Resumable eBay item-offset, Brave page-index and public Poshmark cursor pagination; append/deduplicate, Load more and cancellable Show all matching pages. Strict cursors bind query/lane/fields/photo; retry checkpoints preserve previous results.
+- [x] No-key public Poshmark search with observed asking prices, sizes, source links and honest seller-evidence gaps. Stop before expanded recommendations; public-page availability is not an authenticity claim.
 - [x] Structural listing ID extraction, tracking cleanup, variation-preserving eBay offer identity and richer-evidence deduplication.
 - [x] Dated examples load only through an explicit button; search failures never substitute them.
 
-**Validation:** 66 offline unit tests and API smoke checks cover success, malformed rows/envelopes, expired credentials, 429, deadlines, empty pages, pagination, queued cancellation, shared token recovery, partial-source failure, caching, evidence semantics and supplier discovery. Fixtures are synthetic contract fixtures, not recorded production traffic. Browser checks cover setup/error states, example separation and supplier filters. Production-account exit checks remain open.
+**Validation:** 77 offline unit tests and API smoke checks cover success, malformed rows/envelopes, expired credentials, 429, deadlines, empty pages, pagination, queued cancellation, shared token recovery, partial-source failure, caching, evidence semantics and supplier discovery. Fixtures are synthetic contract fixtures, not recorded production traffic. Browser checks cover setup/error states, example separation and supplier filters. Production-account exit checks remain open.
 
 ### M2 — Find the right garment
 
@@ -88,7 +89,7 @@ Foundation added: eBay net feedback score is now separate from reviews and sales
 
 ### M5 — Expand coverage deliberately
 
-**Resale correction:** the default Legit GAT view now contains six [dated secondhand observations](docs/GAT-RESALE.md), including lower-priced Poshmark examples, independently of provider results. Mercari US is separate from Japanese Mercari. Live empty states distinguish setup, failure, cancellation and no returned matches; snapshots never become live results or lowest-price benchmarks.
+**Resale expansion:** the default Legit GAT view now searches real public Poshmark pages with no six-item cap. Other sources retain their access limits; eBay/Brave account validation remains pending. Six [dated secondhand observations](docs/GAT-RESALE.md), including lower-priced Poshmark examples, remain in a collapsed research section independently of provider results. Mercari US is separate from Japanese Mercari. Live empty states distinguish setup, failure, cancellation and no returned matches; snapshots never become live results or lowest-price benchmarks.
 
 **Implemented v0.3 slice:** [Margiela GAT sourcing directory](docs/GAT-SOURCING.md) with two single-pair shops, one unverified Taobao replica lead and four Chinese manufacturer/catalog leads. Product links, company/policy sources, access limitations, order minimums and evidence gaps are inspectable. Five new domains join indexed discovery and all Reps source filters remain accessible. No supplier is authenticated, and live provider-account validation remains open.
 

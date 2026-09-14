@@ -1,6 +1,6 @@
 # Margiela GAT resale observations
 
-Checked September 14, 2026 UTC. The Legit demo shows six dated public-page observations independently of live search. Empty or unconfigured providers do not establish that secondhand GATs are unavailable. Pages may be cached; confirm current stock and shipping at the source.
+Checked September 14, 2026 UTC. These six dated public-page observations remain in a collapsed research section. The main Legit search now retrieves public Poshmark pages with Load more / Show all controls; see [pagination and coverage](PAGINATION.md). Empty or unconfigured providers do not establish that secondhand GATs are unavailable. Pages may be cached; confirm current stock and shipping at the source.
 
 | Listing                                                                                                                                                           | Observed asking price                                        | Size / condition                         | Seller evidence and limits                                                                                                                |
 | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ | ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |

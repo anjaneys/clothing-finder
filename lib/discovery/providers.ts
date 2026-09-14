@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { createPoshmarkAdapter } from "./poshmark.ts";
+import type { Coverage, SourceCursors } from "./pagination.ts";
 import { unknownEvidence, type Lane, type Listing } from "../finder-types.ts";
 import { recordEvidence } from "../evidence.ts";
 import { identifyListingUrl } from "../listing-identity.ts";
@@ -97,10 +99,13 @@ type Progress = {
   skipped: number;
   hasMore: boolean;
   queryTruncated?: boolean;
+  next?: SourceCursors[keyof SourceCursors];
+  coverage?: Coverage;
 };
 export interface DiscoveryConfig {
   ebay: EbayCredentials;
   braveKey: string;
+  publicSearch?: boolean;
   /** Explicit opt-in only after verifying the provider plan permits storage. Defaults to no result caching. */
   cache?: { ebay?: number; brave?: number };
 }
@@ -128,7 +133,10 @@ export function createAdapters(
       rateUntil = 0;
     const cache = new Map<string, { until: number; result: ProviderResult }>();
     const ttl =
-      Math.min(300, Math.max(0, config.cache?.[definition.id] ?? 0)) * 1000;
+      Math.min(
+        300,
+        Math.max(0, config.cache?.[definition.id as "ebay" | "brave"] ?? 0),
+      ) * 1000;
     if (ttl > 0) definition.retention = "approved_memory_cache";
     return {
       definition,
@@ -150,6 +158,7 @@ export function createAdapters(
           pages: 0,
           skipped: 0,
           hasMore: false,
+          next: input.continuation?.sources[definition.id],
         };
         const status = (
           state: SourceState,
@@ -166,6 +175,11 @@ export function createAdapters(
             pages: progress.pages,
             skipped: progress.skipped,
             hasMore: progress.hasMore,
+            next: progress.next,
+            coverage: error
+              ? "blocked"
+              : (progress.coverage ??
+                (progress.hasMore ? "more" : "exhausted")),
             fromCache: false,
             startedAt: new Date(started).toISOString(),
             finishedAt: new Date(now()).toISOString(),
@@ -182,13 +196,25 @@ export function createAdapters(
               : {}),
           },
         });
-        if (input.signal?.aborted) return status("cancelled");
+        if (input.signal?.aborted) {
+          progress.coverage = "blocked";
+          return status("cancelled");
+        }
         if (
           !definition.lanes.includes(input.lane) ||
           (input.imageBase64 && !definition.operations.includes("image"))
-        )
+        ) {
+          progress.next = undefined;
+          progress.coverage = "unknown";
           return status("not_applicable");
-        if (!configured()) return status("not_configured");
+        }
+        if (!configured()) {
+          progress.next = undefined;
+          progress.coverage = "unknown";
+          return status("not_configured");
+        }
+        if (input.continuation && !input.continuation.sources[definition.id])
+          return status("not_requested");
         if (rateUntil > now())
           return status(
             "rate_limited",
@@ -199,7 +225,7 @@ export function createAdapters(
             "circuit_open",
             new ProviderError("circuit_open", circuitUntil - now()),
           );
-        const key = `${input.lane}:${input.query.trim().toLowerCase()}`;
+        const key = `${input.lane}:${input.query.trim().toLowerCase()}:${JSON.stringify(input.continuation?.sources[definition.id] ?? null)}`;
         // Never cache uploaded image searches; result caching is disabled without explicit permission.
         if (ttl > 0 && !input.imageBase64) {
           const prior = cache.get(key);
@@ -260,7 +286,10 @@ export function createAdapters(
           }
           if (safe.code === "rate_limited")
             rateUntil = now() + (safe.retryAfterMs ?? 1000);
-          if (safe.code === "cancelled") progress.listings = [];
+          if (safe.code === "cancelled") {
+            progress.listings = [];
+            progress.next = input.continuation?.sources[definition.id];
+          }
           return status(progress.listings.length ? "partial" : safe.code, safe);
         } finally {
           release?.();
@@ -296,8 +325,9 @@ export function createAdapters(
       first.searchParams.set("limit", "30");
       first.searchParams.set("offset", "0");
       first.searchParams.set("filter", "buyingOptions:{FIXED_PRICE}");
-      let offset = 0,
+      let offset = input.continuation?.sources.ebay?.offset ?? 0,
         refreshed = false;
+      progress.next = { offset };
       let token = await auth.get(budget.signal);
       while (progress.pages < ebayDefinition.maxPages) {
         const url = new URL(first);
@@ -440,7 +470,10 @@ export function createAdapters(
           progress.listings.push(listing);
         }
         progress.hasMore = !!parsed.data.next;
-        if (!parsed.data.next) break;
+        if (!parsed.data.next) {
+          progress.next = undefined;
+          break;
+        }
         // Never send bearer credentials to an arbitrary URL returned by a provider.
         let next: URL;
         try {
@@ -456,11 +489,17 @@ export function createAdapters(
           next.password ||
           !Number.isSafeInteger(nextOffset) ||
           nextOffset <= offset ||
-          nextOffset % 30 !== 0 ||
-          nextOffset > 9999
+          nextOffset % 30 !== 0
         )
           throw new ProviderError("invalid_response");
+        if (nextOffset > 9999) {
+          progress.next = undefined;
+          progress.hasMore = false;
+          progress.coverage = "provider_limit";
+          break;
+        }
         offset = nextOffset;
+        progress.next = { offset };
       }
     },
   );
@@ -518,11 +557,24 @@ export function createAdapters(
                 similar: false,
               },
             ];
-      const queue = groups
-        .filter((group) => group.markets.length)
-        .map((group) => ({ ...group, offset: 0 }));
+      const cursor = input.continuation?.sources.brave;
+      const queue =
+        cursor?.queue.map((entry) => ({ ...entry })) ??
+        groups
+          .map((group, groupId) => ({
+            groupId,
+            offset: 0,
+            available: group.markets.length,
+          }))
+          .filter((entry) => entry.available)
+          .map(({ groupId, offset }) => ({ groupId, offset }));
+      let limited = cursor?.limited ?? false;
+      let unknown = cursor?.unknown ?? false;
+      progress.next = { queue, limited, unknown };
       while (queue.length && progress.pages < braveDefinition.maxPages) {
-        const group = queue.shift()!;
+        const entry = queue[0];
+        const group = { ...groups[entry.groupId], offset: entry.offset };
+        if (!group.markets) throw new ProviderError("invalid_response");
         const query =
           (group.similar
             ? variants.find(
@@ -603,14 +655,29 @@ export function createAdapters(
             ),
           );
         }
-        if (
-          parsed.data.query?.more_results_available === true &&
-          group.offset < 9
-        )
-          queue.push({ ...group, offset: group.offset + 1 });
+        queue.shift();
+        const more = parsed.data.query?.more_results_available;
+        if (more === true && group.offset < 9)
+          queue.push({ groupId: entry.groupId, offset: group.offset + 1 });
+        else if (more === true) limited = true;
+        else if (more !== false) unknown = true;
         progress.hasMore = queue.length > 0;
+        progress.next = queue.length ? { queue, limited, unknown } : undefined;
+        progress.coverage = queue.length
+          ? "more"
+          : limited
+            ? "provider_limit"
+            : unknown
+              ? "unknown"
+              : "exhausted";
       }
     },
   );
-  return [ebay, brave];
+  return [
+    ebay,
+    brave,
+    ...(config.publicSearch !== undefined
+      ? [createPoshmarkAdapter(config.publicSearch, options)]
+      : []),
+  ];
 }

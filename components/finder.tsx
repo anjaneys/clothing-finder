@@ -64,6 +64,9 @@ import {
   isGatQuery,
   type ItemIntent,
 } from "@/lib/item-intent";
+import { deduplicateListings } from "@/lib/listing-identity";
+import { mergeSearchRun } from "@/lib/search-session";
+import type { Continuation } from "@/lib/discovery/pagination";
 import type { SearchRun } from "@/lib/discovery/types";
 import { scoreSeller, scoreListing, landedCost } from "@/lib/scoring";
 import {
@@ -82,7 +85,12 @@ const money = (n: number | null, currency = "USD") =>
         currency,
         maximumFractionDigits: 2,
       }).format(n);
-type Connections = { ebay: boolean; search: boolean; vision: boolean };
+type Connections = {
+  ebay: boolean;
+  search: boolean;
+  vision: boolean;
+  poshmark: boolean;
+};
 
 export default function Finder() {
   const [query, setQuery] = useState(initialQuery),
@@ -107,6 +115,7 @@ export default function Finder() {
       ebay: false,
       search: false,
       vision: false,
+      poshmark: false,
     }),
     [settings, setSettings] = useState(false),
     [importOpen, setImportOpen] = useState(false);
@@ -121,6 +130,14 @@ export default function Finder() {
   const fileInput = useRef<HTMLInputElement>(null);
   const request = useRef<AbortController | null>(null);
   const requestId = useRef(0);
+  const [continuation, setContinuation] = useState<Continuation | undefined>();
+  const [loadingMore, setLoadingMore] = useState(false);
+  const submittedSearch = useRef<{
+    query: string;
+    lane: Lane;
+    fields: Partial<ItemIntent["fields"]>;
+    image?: string;
+  } | null>(null);
   const visionRequest = useRef<AbortController | null>(null);
   const uploadId = useRef(0);
   const cancelIdentify = useCallback(() => {
@@ -144,6 +161,7 @@ export default function Finder() {
     setSubmittedFields({});
     setSearchIssue(null);
     setListings([]);
+    setContinuation(undefined);
     setRun(null);
     setPlatform("all");
     setSize("all");
@@ -186,6 +204,14 @@ export default function Finder() {
       setPlatform("all");
       setBusy(true);
       setListings([]);
+      setContinuation(undefined);
+      setLoadingMore(false);
+      submittedSearch.current = {
+        query: q,
+        lane: category,
+        fields,
+        ...(photo ? { image: photo } : {}),
+      };
       setRun(null);
       setTargetFields(fields);
       setSubmittedFields(fields);
@@ -206,14 +232,15 @@ export default function Finder() {
         const data: SearchResponse & { error?: string } = await response.json();
         if (!response.ok) throw new Error(data.error || "Search unavailable");
         if (id !== requestId.current) return;
-        setListings(data.listings);
+        setListings(deduplicateListings(data.listings));
+        setContinuation(data.continuation);
         setRun(data.run ?? null);
         setMessage(
           data.message +
             (data.errors.length ? ` ${data.errors.join(" ")}` : ""),
         );
       } catch (error) {
-        if (controller.signal.aborted) return;
+        if (controller.signal.aborted || id !== requestId.current) return;
         setListings([]);
         setSearchIssue("failed");
         setMessage(
@@ -227,12 +254,91 @@ export default function Finder() {
     },
     [cancelIdentify],
   );
+  async function loadMore(all = false) {
+    if (!continuation || !submittedSearch.current || busy) return;
+    const submitted = submittedSearch.current;
+    const id = ++requestId.current;
+    request.current?.abort();
+    const controller = new AbortController();
+    request.current = controller;
+    setBusy(true);
+    setLoadingMore(true);
+    setSearchIssue(null);
+    let cursor: Continuation | undefined = continuation;
+    const seen = new Set<string>();
+    try {
+      do {
+        const key = JSON.stringify(cursor);
+        if (seen.has(key)) {
+          setMessage(
+            "The source repeated its cursor. Search paused; existing listings are retained.",
+          );
+          break;
+        }
+        seen.add(key);
+        setMessage(
+          all
+            ? "Loading all available matching pages… You can stop and keep the results."
+            : "Loading more listings…",
+        );
+        const response = await fetch("/api/search", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ...submitted, continuation: cursor }),
+          signal: controller.signal,
+        });
+        const data: SearchResponse & { error?: string } = await response.json();
+        if (!response.ok)
+          throw new Error(data.error ?? "Could not load this page.");
+        if (id !== requestId.current || controller.signal.aborted) return;
+        setListings((old) => deduplicateListings([...old, ...data.listings]));
+        setRun((old) => mergeSearchRun(old, data.run));
+        cursor = data.continuation;
+        setContinuation(cursor);
+        const blocked = data.run?.sources.some(
+          (source) =>
+            source.errorCode ||
+            [
+              "auth_error",
+              "access_denied",
+              "rate_limited",
+              "timeout",
+              "cancelled",
+              "invalid_response",
+              "unavailable",
+              "circuit_open",
+            ].includes(source.state),
+        );
+        setMessage(
+          blocked
+            ? "Some sources paused. Your retrieved listings are retained; check source status before retrying."
+            : cursor
+              ? "More matching pages are available."
+              : "Loaded the matching pages returned by the connected sources. See coverage for each source.",
+        );
+        if (blocked) break;
+      } while (all && cursor && !controller.signal.aborted);
+    } catch (error) {
+      if (id !== requestId.current || controller.signal.aborted) return;
+      setMessage(
+        `${error instanceof Error ? error.message : "Could not load more listings."} Your previous results are retained; you can retry.`,
+      );
+    } finally {
+      if (id === requestId.current) {
+        setBusy(false);
+        setLoadingMore(false);
+      }
+    }
+  }
   function cancelSearch() {
     request.current?.abort();
     requestId.current++;
     setBusy(false);
+    setLoadingMore(false);
     setSearchIssue("cancelled");
-    setMessage("Search cancelled. You can refine the target and try again.");
+    setMessage(
+      "Search stopped. Retrieved listings are retained; you can continue loading or start a new search.",
+    );
   }
   async function photoData() {
     if (!image) return undefined;
@@ -415,7 +521,7 @@ export default function Finder() {
   const lowest = results
     .filter(
       (l) =>
-        l.provenance === "live_api" &&
+        ["live_api", "public_page"].includes(l.provenance ?? "") &&
         ["code_match", "model_match"].includes(l.matchAssessment?.kind ?? "") &&
         l.matchAssessment?.missing.length === 0 &&
         l.price !== null &&
@@ -450,7 +556,7 @@ export default function Finder() {
     configured: connectionsChecked
       ? lane === "reps"
         ? connections.search
-        : connections.search || connections.ebay
+        : connections.search || connections.ebay || connections.poshmark
       : null,
     issue: searchIssue,
     setupFailed,
@@ -476,12 +582,12 @@ export default function Finder() {
           >
             <span
               className={
-                connections.ebay || connections.search
+                connections.ebay || connections.search || connections.poshmark
                   ? "status-dot connected"
                   : "status-dot"
               }
             />
-            {connections.ebay || connections.search
+            {connections.ebay || connections.search || connections.poshmark
               ? "Sources configured"
               : "Source setup"}
             <ChevronRight size={14} />
@@ -830,8 +936,8 @@ export default function Finder() {
                     : results.length === 1
                       ? "retrieved listing"
                       : "retrieved listings"}
-                {resaleExamples.length > 0 && (
-                  <span> · {filteredResale.length} researched below</span>
+                {results.length !== allListings.length && (
+                  <span> of {allListings.length} loaded · filters active</span>
                 )}
                 {lowest && (
                   <>
@@ -889,14 +995,20 @@ export default function Finder() {
                     </small>
                     {source.skipped > 0 && (
                       <small>
-                        {source.skipped} incomplete or non-listing results
-                        skipped
+                        {source.skipped} incomplete, unrelated or non-listing
+                        results skipped
                       </small>
                     )}
                     {source.hasMore && (
+                      <small>More matching pages are available.</small>
+                    )}
+                    {source.coverage === "provider_limit" && (
                       <small>
-                        More pages may exist; search budget reached.
+                        This source reached its search coverage boundary.
                       </small>
+                    )}
+                    {source.coverage === "unknown" && (
+                      <small>Further coverage is unknown.</small>
                     )}
                     {source.queryTruncated && (
                       <small>eBay used the first 100 query characters.</small>
@@ -926,6 +1038,7 @@ export default function Finder() {
                   setSubmittedFields({});
                   setSearchIssue(null);
                   setRun(null);
+                  setContinuation(undefined);
                   setPlatform("all");
                   setSize("all");
                   setBudget("");
@@ -942,7 +1055,28 @@ export default function Finder() {
                 Load dated jeans examples · Sep 13, 2026 UTC
               </button>
             )}
-            {busy ? (
+            {continuation && (
+              <div className="pagination-controls">
+                <span>
+                  {allListings.length} listings loaded · duplicates merged
+                </span>
+                <button
+                  className="outline-button"
+                  disabled={busy}
+                  onClick={() => void loadMore(false)}
+                >
+                  Load more
+                </button>
+                <button
+                  className="outline-button"
+                  disabled={busy}
+                  onClick={() => void loadMore(true)}
+                >
+                  Show all matching pages
+                </button>
+              </div>
+            )}
+            {busy && !loadingMore ? (
               <div className="empty-results">
                 <LoaderCircle size={28} className="spin" />
                 <h3>Looking for your piece…</h3>
@@ -975,10 +1109,13 @@ export default function Finder() {
               </div>
             )}
             {resaleExamples.length > 0 && (
-              <section
+              <details
                 className="resale-research"
                 aria-label="Researched GAT resale listings"
               >
+                <summary>
+                  Six dated research examples from other marketplaces
+                </summary>
                 <div className="results-heading">
                   <div>
                     <span className="section-kicker">
@@ -1011,7 +1148,7 @@ export default function Finder() {
                     filters to see the collection.
                   </p>
                 )}
-              </section>
+              </details>
             )}
             {lane === "reps" && <CostCalculator />}
             <div className="marketplace-heading">
@@ -1100,6 +1237,11 @@ export default function Finder() {
             <h3>Source configuration</h3>
             {[
               [
+                "Poshmark public search",
+                connections.poshmark,
+                "Paginated public listings · no API key needed",
+              ],
+              [
                 "eBay Browse",
                 connections.ebay,
                 "Keyword and photo search with seller feedback",
@@ -1127,7 +1269,7 @@ export default function Finder() {
             ))}
             <p className="detail-note">
               Configure optional keys in this project’s .env file, then restart.
-              Marketplace links and researched listings work without keys.
+              Poshmark public search and marketplace links work without keys.
               Private or login-only inventory requires opening the source.
             </p>
             <h3>Trust is earned through evidence</h3>

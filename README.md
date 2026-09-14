@@ -4,7 +4,7 @@ A clothing discovery workspace with Legit and Reps views, title/image inputs, re
 
 [Roadmap](ROADMAP.md) · [GAT resale](docs/GAT-RESALE.md) · [GAT suppliers](docs/GAT-SOURCING.md) · [More marketplaces](docs/RESEARCH.md) · [CI](https://github.com/anjaneys/clothing-finder/actions/workflows/ci.yml)
 
-**Status: retrieval foundation implemented; provider-account validation pending.** Live adapters need provider credentials and account testing. Research snapshots and source handoffs are labelled separately from live API results. The roadmap documents planned work, not capabilities already delivered.
+**Status: public Poshmark retrieval and resumable search implemented.** Poshmark works without an API key; eBay/Brave still need credentials and account testing. Research snapshots and source handoffs are labelled separately from live API results. The roadmap documents planned work, not capabilities already delivered.
 
 ## Run
 
@@ -30,7 +30,7 @@ npm start
 ## Included
 
 - Title search and marketplace handoffs: Grailed, Depop, eBay, Vinted, Facebook Marketplace, Etsy, Poshmark, Mercari Japan, Rakuma and Yahoo! Auctions.
-- Default **Maison Margiela GAT demo** in Legit: six researched secondhand listings on Poshmark, Depop, Mercari US, Grailed and eBay. Prices, sizes, condition and available seller observations are linked to their source. Research is separate from live provider results; unconfigured or failed searches do not imply no resale inventory.
+- Default **Maison Margiela GAT demo** in Legit: search current public Poshmark pages, then choose **Load more** or **Show all matching pages**. Results append and deduplicate without a six-listing cap. Six dated examples from Poshmark, Depop, Mercari US, Grailed and eBay remain in a collapsed research section.
 - Reps keeps seven dated product/catalog links, with filters for single-pair shops, replica leads, bulk factories and seller location. Each card shows available prices, order minimums, size/material differences, shipping routes and inspectable evidence. Independent brands are labelled separately from replicas.
 - Reps discovery covers Taobao, 1688, Weidian, MADEN, NOVESTA Japan, Made-in-China, Bona Shoes and Huangxuan. Chinese marketplace queries and English direct-shop/factory queries use GAT terms for this demo. Existing Rick Owens jeans expansion remains supported.
 - An explicit **Load dated jeans examples** button loads four real Rick Owens research snapshots, with prices, seller evidence and source links. Two close degrade matches and two solid-black alternatives. These are not guaranteed live inventory.
@@ -54,15 +54,17 @@ Copy `.env.example` to `.env`, fill in your own optional credentials, then resta
 | `OPENAI_API_KEY`                        | Suggested clothing search terms from images                                 | [Image inputs](https://developers.openai.com/api/docs/guides/images-vision). Requires API access and billing.                                                                                                                                  |
 | `OPENAI_VISION_MODEL`                   | Image-capable model                                                         | Default `gpt-4.1-mini`; configurable for your account.                                                                                                                                                                                         |
 
-Without keys, searches return per-source setup states and zero live listings. The dated GAT directory and marketplace links work; dated jeans examples load only when explicitly requested. The official GAT reference photo is display-only; upload your own image to identify or search it. Arbitrary image identification needs the vision key. Real provider-account requests remain untested because credentials were not supplied.
+Without keys, Legit title searches retrieve public Poshmark listings; eBay and Brave report their setup states. Set `POSHMARK_PUBLIC_SEARCH=false` to disable public fetching. Reps indexed discovery still needs Brave. The dated GAT directory and marketplace links work; dated jeans examples load only when explicitly requested. The official GAT reference photo is display-only; upload your own image to identify or search it. Arbitrary image identification needs the vision key. Real provider-account requests remain untested because credentials were not supplied.
 
 Private or login-only inventory is not crawled. Login, CAPTCHA and regional restrictions are not bypassed. Direct marketplace APIs require permission and connector-specific work. This is a local starter; public deployment with paid keys requires authentication, rate limits and production operations.
 
 ## Provider limits and retention
 
-Each source has a 20-second deadline including queue time, at most three pages and six search HTTP attempts. eBay allows two concurrent searches per process, Brave one. eBay token minting is shared with a separate 10-second/two-attempt budget, so reported search requests exclude token requests. A failed response may retry once; 429 honors reset windows and long cooldowns. Three transient/schema failures pause the source for 30 seconds. These process-local protections are not a public-service quota system.
+Each batch has a 20-second deadline per source including queue time. eBay/Brave allow at most three pages and six search HTTP attempts per batch; Poshmark allows one public page and two attempts. **Show all matching pages** performs serial batches, preserving the last accepted cursor and existing cards if stopped or interrupted. New targets invalidate earlier requests. This removes the application result cap, not provider coverage limits. eBay allows two concurrent searches per process, Brave one. eBay token minting is shared with a separate 10-second/two-attempt budget, so reported search requests exclude token requests. A failed response may retry once; 429 honors reset windows and long cooldowns. Three transient/schema failures pause eBay or Brave for 30 seconds. These process-local protections are not a public-service quota system.
 
-Provider result caching defaults off. Only after verifying your agreement permits storage, set the matching `EBAY_STORAGE_ALLOWED` or `BRAVE_STORAGE_ALLOWED` to `true` and its `*_CACHE_TTL_SECONDS` to 1–300. Cache entries preserve original observation times; uploaded-photo searches are never cached. Search runs, manual observations and corrections otherwise live only in the current browser session; no database is added. Live API observations get a 15-minute recheck time. This is a UI freshness heuristic, not a provider stock guarantee or retention license.
+Provider result caching defaults off. Only after verifying your agreement permits storage, set the matching `EBAY_STORAGE_ALLOWED` or `BRAVE_STORAGE_ALLOWED` to `true` and its `*_CACHE_TTL_SECONDS` to 1–300. Cache entries preserve original observation times; uploaded-photo searches are never cached. Search runs, manual observations and corrections otherwise live only in the current browser session; no database is added. Live API and public-page observations get a 15-minute recheck time. This is a UI freshness heuristic, not a provider stock guarantee or retention license.
+
+Poshmark's public HTML includes listing data, canonical product URLs and an opaque next-page cursor. The adapter parses JSON without executing scripts, rejects redirects and oversized/malformed responses, and only requests the fixed public search route. GAT searches naming Margiela use the broad model query, then rank variants against the submitted target. Search-card prices, sizes, seller usernames and availability are observed; missing seller sales/reviews and shipping remain unknown. On September 14, 2026, the broad GAT query reported 199 primary matches before broader recommendations; counts change. The adapter stops at the observed recommendation boundary and reports limited coverage, not universal inventory completion. Public HTML/schema changes or access restrictions may interrupt retrieval. See [implementation notes](docs/PAGINATION.md).
 
 Brave uses separate English and Japanese marketplace groups for Legit. Reps allocates its three-page budget across Chinese marketplaces, English direct shops and English factory product pages. Returned URLs must structurally identify a listing, preserving supported shop variant IDs. Category pages such as XuFan's catalog remain research links instead of indexed offers. Providers can still return irrelevant or stale listings.
 
@@ -90,7 +92,7 @@ eBay net feedback score is separate from seller review and sales counts, may be 
 
 React/TypeScript on Vinext/Vite with Cloudflare-compatible output. The source repository is public; the application runs locally. No public application deployment is configured.
 
-GitHub Actions installs from the lockfile, checks TypeScript, runs 66 provider/identity/evidence/scoring/sourcing/presentation tests, builds the app, and smoke-tests the API without paid provider credentials.
+GitHub Actions installs from the lockfile, checks TypeScript, runs 77 provider/identity/evidence/scoring/sourcing/presentation/pagination tests, builds the app, and smoke-tests the API with external providers disabled. Public-page contract tests use synthetic fixtures; the local Poshmark route was also verified with actual requests.
 
 ## Research
 

@@ -10,6 +10,7 @@ export function connections() {
       !!config("EBAY_ACCESS_TOKEN") ||
       !!(config("EBAY_CLIENT_ID") && config("EBAY_CLIENT_SECRET")),
     search: !!config("BRAVE_SEARCH_API_KEY"),
+    poshmark: config("POSHMARK_PUBLIC_SEARCH") !== "false",
     vision: !!config("OPENAI_API_KEY"),
   };
 }

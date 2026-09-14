@@ -23,6 +23,7 @@ jobs:
       EBAY_ACCESS_TOKEN: ""
       BRAVE_SEARCH_API_KEY: ""
       OPENAI_API_KEY: ""
+      POSHMARK_PUBLIC_SEARCH: "false"
       CLOUDFLARE_CF_FETCH_ENABLED: "false"
       WRANGLER_SEND_METRICS: "false"
     steps:

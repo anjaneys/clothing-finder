@@ -149,10 +149,11 @@ export function createTransport(options: RuntimeOptions = {}) {
   const now = options.now ?? Date.now;
   const pause = options.sleep ?? sleep;
   const random = options.random ?? Math.random;
-  async function json(
+  async function request(
     url: string,
     init: RequestInit,
     budget: RequestBudget,
+    asText = false,
   ): Promise<unknown> {
     for (let attempt = 0; attempt < 2; attempt++) {
       if (budget.signal.aborted) throw abortError(budget.signal);
@@ -163,7 +164,7 @@ export function createTransport(options: RuntimeOptions = {}) {
       let response: Response;
       try {
         response = await withSignal(
-          fetcher(url, { ...init, signal: budget.signal, redirect: "error" }),
+          fetcher(url, { ...init, signal: budget.signal, redirect: "manual" }),
           budget.signal,
         );
       } catch (error) {
@@ -208,7 +209,7 @@ export function createTransport(options: RuntimeOptions = {}) {
           const part = await withSignal(reader.read(), budget.signal);
           if (part.done) break;
           size += part.value.byteLength;
-          if (size > 2 * 1024 * 1024)
+          if (size > (asText ? 5 : 2) * 1024 * 1024)
             throw new ProviderError("invalid_response");
           chunks.push(part.value);
         }
@@ -218,7 +219,8 @@ export function createTransport(options: RuntimeOptions = {}) {
           bytes.set(part, offset);
           offset += part.byteLength;
         }
-        return JSON.parse(new TextDecoder().decode(bytes));
+        const text = new TextDecoder().decode(bytes);
+        return asText ? text : JSON.parse(text);
       } catch (error) {
         void reader.cancel().catch(() => {});
         if (budget.signal.aborted) throw abortError(budget.signal);
@@ -230,5 +232,11 @@ export function createTransport(options: RuntimeOptions = {}) {
     }
     throw new ProviderError("unavailable");
   }
-  return { json, now };
+  return {
+    json: (url: string, init: RequestInit, budget: RequestBudget) =>
+      request(url, init, budget),
+    text: (url: string, init: RequestInit, budget: RequestBudget) =>
+      request(url, init, budget, true) as Promise<string>,
+    now,
+  };
 }
