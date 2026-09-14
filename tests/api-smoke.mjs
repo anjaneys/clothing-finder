@@ -7,6 +7,17 @@ const post = (path, body, headers = {}) =>
     body: JSON.stringify(body),
   });
 const status = await (await fetch(base + "/api/status")).json();
+const cloud = await (await fetch(base + "/api/library/config")).json();
+assert.equal(typeof cloud.configured, "boolean");
+assert.equal(typeof cloud.storagePolicy.ebay, "boolean");
+assert.equal(typeof cloud.storagePolicy.brave, "boolean");
+assert.ok(!("secretKey" in cloud));
+if (!cloud.configured) {
+  assert.ok(!("publishableKey" in cloud));
+  assert.equal((await post("/api/library/save", {})).status, 503);
+} else {
+  assert.equal((await post("/api/library/save", {})).status, 401);
+}
 assert.deepEqual(Object.keys(status).sort(), [
   "ebay",
   "poshmark",

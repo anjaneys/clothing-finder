@@ -24,6 +24,8 @@ jobs:
       BRAVE_SEARCH_API_KEY: ""
       OPENAI_API_KEY: ""
       POSHMARK_PUBLIC_SEARCH: "false"
+      SUPABASE_URL: ""
+      SUPABASE_PUBLISHABLE_KEY: ""
       CLOUDFLARE_CF_FETCH_ENABLED: "false"
       WRANGLER_SEND_METRICS: "false"
     steps:

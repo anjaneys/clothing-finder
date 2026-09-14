@@ -106,6 +106,10 @@ Use the [source matrix](docs/RESEARCH.md#additional-marketplaces-and-buying-rout
 
 ### M6 — Preserve useful work and surface changes
 
+**v0.5 implementation:** [hosted Supabase library](docs/DATABASE.md), private user access/RLS, idempotent observation imports, automatic saving while signed in, paginated data/history/export, delete controls, and currency/section-specific charts. An unsaved session preview works immediately. The user's hosted project is not connected yet; real save/reload validation is pending. Seller evidence and original image URLs are saved within normalized listing snapshots; uploaded-photo bytes and retrieval cursors are excluded.
+
+- [x] Implement and test hosted schema, import/read APIs, ownership isolation, immutable price/availability history and Library UI.
+- [ ] Connect the owner's cloud project, apply migration, and verify a real authenticated save followed by reload/sign-in.
 - [ ] Persist targets, listings, image references, evidence and saved comparisons in a database with export/delete controls.
 - [ ] Add price/availability history and user-configurable refresh schedules, respecting source budgets and access terms.
 - [ ] Notify on a meaningful match, price drop, seller-evidence change, removed listing or failed refresh requiring action. Do not spam unchanged checks.
@@ -123,7 +127,7 @@ Use the [source matrix](docs/RESEARCH.md#additional-marketplaces-and-buying-rout
 
 ## Recommended next implementation slice
 
-Validate **M1 production provider access**, then extend the **M5 supplier directory** beyond the GAT example using the same evidence and order-quantity requirements. Add destination-specific sample and single-pair quotes to **M4** before comparing delivered prices. Persistence and broader visual matching remain later work.
+Activate and validate the **M6 hosted library**, then validate **M1 production provider access** and extend the **M5 supplier directory** beyond the GAT example using the same evidence and order-quantity requirements. Add destination-specific sample and single-pair quotes to **M4** before comparing delivered prices. The persistence integration is now implemented; cloud activation and broader visual matching remain open.
 
 ## Decisions to validate with real usage
 

@@ -1,3 +1,5 @@
+// Unused template scaffold. The Library uses hosted Supabase via lib/library/.
+// No D1 binding is enabled; do not use this for Library persistence.
 import { env } from "cloudflare:workers";
 import { drizzle } from "drizzle-orm/d1";
 import * as schema from "./schema";

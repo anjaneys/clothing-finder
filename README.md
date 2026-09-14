@@ -2,9 +2,9 @@
 
 A clothing discovery workspace with Legit and Reps views, title/image inputs, researched resale listings, seller evidence, and a proxy cost calculator.
 
-[Roadmap](ROADMAP.md) · [GAT resale](docs/GAT-RESALE.md) · [GAT suppliers](docs/GAT-SOURCING.md) · [More marketplaces](docs/RESEARCH.md) · [CI](https://github.com/anjaneys/clothing-finder/actions/workflows/ci.yml)
+[Cloud database setup](docs/DATABASE.md) · [Roadmap](ROADMAP.md) · [GAT resale](docs/GAT-RESALE.md) · [GAT suppliers](docs/GAT-SOURCING.md) · [More marketplaces](docs/RESEARCH.md) · [CI](https://github.com/anjaneys/clothing-finder/actions/workflows/ci.yml)
 
-**Status: public Poshmark retrieval and resumable search implemented.** Poshmark works without an API key; eBay/Brave still need credentials and account testing. Research snapshots and source handoffs are labelled separately from live API results. The roadmap documents planned work, not capabilities already delivered.
+**Status: public Poshmark retrieval, resumable search, and cloud-ready Library implemented.** Poshmark works without an API key; eBay/Brave still need credentials and account testing. The Supabase integration is ready for your hosted project; no cloud database is connected yet. Research snapshots and source handoffs are labelled separately from live API results. The roadmap documents planned work, not capabilities already delivered.
 
 ## Run
 
@@ -29,6 +29,8 @@ npm start
 
 ## Included
 
+- **Library & data**: unsaved session preview plus private Supabase storage once connected. Browse saved searches, asking-price distributions, marketplace coverage, seller-evidence bands, availability, and per-item history. Saved tables/history/export are paginated; chart totals cover all matching rows.
+- Hosted PostgreSQL schema with user ownership/RLS, immutable dated observations, idempotent batched saves, automatic saving while signed in, and export/delete controls. No local database fallback or permanent reference-photo storage. See [cloud setup](docs/DATABASE.md).
 - Title search and marketplace handoffs: Grailed, Depop, eBay, Vinted, Facebook Marketplace, Etsy, Poshmark, Mercari Japan, Rakuma and Yahoo! Auctions.
 - Default **Maison Margiela GAT demo** in Legit: search current public Poshmark pages, then choose **Load more** or **Show all matching pages**. Results append and deduplicate without a six-listing cap. Six dated examples from Poshmark, Depop, Mercari US, Grailed and eBay remain in a collapsed research section.
 - Reps keeps seven dated product/catalog links, with filters for single-pair shops, replica leads, bulk factories and seller location. Each card shows available prices, order minimums, size/material differences, shipping routes and inspectable evidence. Independent brands are labelled separately from replicas.
@@ -39,12 +41,12 @@ npm start
 - Editable target fields and deterministic title-based matching distinguish model words, full style codes, conflicting variants and missing information. These fields refine ranking; the search title controls provider retrieval. No claim of validated visual similarity or exact-item accuracy.
 - Per-source status reports include pages, request counts, skipped records, partial coverage, rate limits, cancellation and setup failures. Healthy results survive another source failing.
 - Evidence history keeps observation method, raw/normalized values, timestamps and expiry. Corrections append your observation while retaining imported facts.
-- Manual listings scoped to query and lane, retained through tab changes for this session. Refreshing resets them. Apply observed seller counts and a price benchmark in listing details to update the card and trust sorting.
+- Manual listings scoped to query and lane, retained through tab changes for this session. Unsaved entries reset on refresh; cloud-saved observations remain in the Library. Apply observed seller counts and a price benchmark in listing details to update the card and trust sorting.
 - Proxy calculator with domestic/international shipping, proxy fees, payment fees and estimated taxes/duties. Supply quotes in one currency and a conversion rate. Missing costs remain unknown; currency changes clear old quotes.
 
 ## Optional connections
 
-Copy `.env.example` to `.env`, fill in your own optional credentials, then restart. `.env` is ignored by Git; no credentials are included in the repository or exposed to the browser. In PowerShell: `Copy-Item .env.example .env` (only when you do not already have a configured `.env`).
+Copy `.env.example` to `.env`, fill in your own optional credentials, then restart. `.env` is ignored by Git; no private provider credentials are included in the repository or exposed to the browser. The Supabase project URL and publishable key are intentionally public; user JWTs and RLS protect the records. In PowerShell: `Copy-Item .env.example .env` (only when you do not already have a configured `.env`).
 
 | Variable                                | Enables                                                                     | Setup                                                                                                                                                                                                                                          |
 | --------------------------------------- | --------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -62,7 +64,7 @@ Private or login-only inventory is not crawled. Login, CAPTCHA and regional rest
 
 Each batch has a 20-second deadline per source including queue time. eBay/Brave allow at most three pages and six search HTTP attempts per batch; Poshmark allows one public page and two attempts. **Show all matching pages** performs serial batches, preserving the last accepted cursor and existing cards if stopped or interrupted. New targets invalidate earlier requests. This removes the application result cap, not provider coverage limits. eBay allows two concurrent searches per process, Brave one. eBay token minting is shared with a separate 10-second/two-attempt budget, so reported search requests exclude token requests. A failed response may retry once; 429 honors reset windows and long cooldowns. Three transient/schema failures pause eBay or Brave for 30 seconds. These process-local protections are not a public-service quota system.
 
-Provider result caching defaults off. Only after verifying your agreement permits storage, set the matching `EBAY_STORAGE_ALLOWED` or `BRAVE_STORAGE_ALLOWED` to `true` and its `*_CACHE_TTL_SECONDS` to 1–300. Cache entries preserve original observation times; uploaded-photo searches are never cached. Search runs, manual observations and corrections otherwise live only in the current browser session; no database is added. Live API and public-page observations get a 15-minute recheck time. This is a UI freshness heuristic, not a provider stock guarantee or retention license.
+Provider result caching defaults off. Only after verifying your agreement permits storage, set the matching `EBAY_STORAGE_ALLOWED` or `BRAVE_STORAGE_ALLOWED` to `true` and its `*_CACHE_TTL_SECONDS` to 1–300. Cache entries preserve original observation times; uploaded-photo searches are never cached. Unsaved results live in the browser session. Once the hosted Library is connected and signed in, eligible listing observations and target data can persist in Supabase; eBay/Brave cloud saves honor the same storage-allowed flags. Live API and public-page observations get a 15-minute recheck time. This is a UI freshness heuristic, not a provider stock guarantee or retention license.
 
 Poshmark's public HTML includes listing data, canonical product URLs and an opaque next-page cursor. The adapter parses JSON without executing scripts, rejects redirects and oversized/malformed responses, and only requests the fixed public search route. GAT searches naming Margiela use the broad model query, then rank variants against the submitted target. Search-card prices, sizes, seller usernames and availability are observed; missing seller sales/reviews and shipping remain unknown. On September 14, 2026, the broad GAT query reported 199 primary matches before broader recommendations; counts change. The adapter stops at the observed recommendation boundary and reports limited coverage, not universal inventory completion. Public HTML/schema changes or access restrictions may interrupt retrieval. See [implementation notes](docs/PAGINATION.md).
 
@@ -79,6 +81,8 @@ eBay net feedback score is separate from seller review and sales counts, may be 
 ## Files
 
 - `components/finder.tsx`: interface, details, filters, session entries and costs.
+- `components/cloud-library.tsx`, `lib/library/`, `app/api/library/`: cloud/session data browser, auth, normalized saves and analytics.
+- `supabase/migrations/`: hosted PostgreSQL schema, RLS and transactional functions. Database records are not committed.
 - `lib/reference-listings.ts`: research snapshots.
 - `components/sourcing-directory.tsx`, `lib/sourcing-leads.ts`: GAT supplier directory, source evidence, purchase filters and MOQ goods estimates.
 - `lib/marketplaces.ts`: source links and routes.
@@ -92,7 +96,7 @@ eBay net feedback score is separate from seller review and sales counts, may be 
 
 React/TypeScript on Vinext/Vite with Cloudflare-compatible output. The source repository is public; the application runs locally. No public application deployment is configured.
 
-GitHub Actions installs from the lockfile, checks TypeScript, runs 77 provider/identity/evidence/scoring/sourcing/presentation/pagination tests, builds the app, and smoke-tests the API with external providers disabled. Public-page contract tests use synthetic fixtures; the local Poshmark route was also verified with actual requests.
+GitHub Actions installs from the lockfile, checks TypeScript, runs 94 provider, identity, evidence, scoring, sourcing, pagination and PostgreSQL/library tests, builds the app, and smoke-tests the API with external providers disabled. Public-page contract tests use synthetic fixtures; the local Poshmark route was also verified with actual requests.
 
 ## Research
 

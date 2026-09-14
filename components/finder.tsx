@@ -25,6 +25,7 @@ import {
   Sparkles,
   X,
 } from "lucide-react";
+import CloudLibrary from "@/components/cloud-library";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Sheet,
@@ -93,6 +94,10 @@ type Connections = {
 };
 
 export default function Finder() {
+  const [workspaceView, setWorkspaceView] = useState<"finder" | "library">(
+    "finder",
+  );
+  const [collectionId, setCollectionId] = useState<string | null>(null);
   const [query, setQuery] = useState(initialQuery),
     [searched, setSearched] = useState(initialQuery),
     [lane, setLane] = useState<Lane>("legit");
@@ -155,6 +160,7 @@ export default function Finder() {
     uploadId.current++;
     setImage(null);
     setQuery(gatDemo.query);
+    setCollectionId(crypto.randomUUID());
     setSearched(gatDemo.query);
     setLane("reps");
     setTargetFields({});
@@ -200,6 +206,7 @@ export default function Finder() {
       request.current = controller;
       setQuery(q);
       setSearched(q);
+      setCollectionId(crypto.randomUUID());
       setLane(category);
       setPlatform("all");
       setBusy(true);
@@ -572,6 +579,20 @@ export default function Finder() {
           </span>
           clothing finder<span className="beta">WORKSPACE</span>
         </a>
+        <nav className="workspace-navigation" aria-label="Workspace">
+          <button
+            className={workspaceView === "finder" ? "active" : ""}
+            onClick={() => setWorkspaceView("finder")}
+          >
+            Finder
+          </button>
+          <button
+            className={workspaceView === "library" ? "active" : ""}
+            onClick={() => setWorkspaceView("library")}
+          >
+            Library & data
+          </button>
+        </nav>
         <div className="top-actions">
           <span className="destination">
             <Globe2 size={15} /> Ship to US · USD
@@ -594,7 +615,7 @@ export default function Finder() {
           </button>
         </div>
       </header>
-      <main className="main-wrap">
+      <main className="main-wrap" hidden={workspaceView !== "finder"}>
         <div className="page-heading">
           <div>
             <div className="eyebrow">THE SEARCH IS PART OF THE FIND</div>
@@ -1031,6 +1052,7 @@ export default function Finder() {
                 className="reference-load"
                 onClick={() => {
                   setQuery("Rick Owens bias bootcut jeans");
+                  setCollectionId(crypto.randomUUID());
                   cancelIdentify();
                   setSearched("Rick Owens bias bootcut jeans");
                   setImage("/reference-jeans.png");
@@ -1206,6 +1228,19 @@ export default function Finder() {
           <span>USD · US destination</span>
         </footer>
       </main>
+      <CloudLibrary
+        visible={workspaceView === "library"}
+        onBack={() => setWorkspaceView("finder")}
+        session={{
+          runId: collectionId,
+          query: searched,
+          lane,
+          fields: submittedFields,
+          listings: allListings.filter((l) => l.lane === lane),
+          run,
+          busy,
+        }}
+      />
       <Sheet
         open={!!selected}
         onOpenChange={(v) => {
@@ -1325,6 +1360,7 @@ export default function Finder() {
           <ImportListing
             lane={lane}
             onAdd={(l) => {
+              setCollectionId((old) => old ?? crypto.randomUUID());
               setManualListings((old) => [
                 recordEvidence({ ...l, searchQuery: searched }, "manual_input"),
                 ...old,
