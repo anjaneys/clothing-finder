@@ -1,24 +1,34 @@
 import { config } from "./server-config";
-import { marketplaceForUrl, marketplaces, searchQuery } from "./marketplaces";
-import { unknownEvidence, type Lane, type Listing } from "./finder-types";
-const observed=()=>new Date().toISOString();
-const amount=(v:unknown):number|null=>v===null||v===undefined||v===""?null:Number.isFinite(Number(v))&&Number(v)>=0?Number(v):null;
-const text=(v:unknown)=>typeof v==="string"?v:"";
-type EbayItem={itemId?:string;title?:string;itemWebUrl?:string;image?:{imageUrl?:string};price?:{value?:string;currency?:string};condition?:string;shippingOptions?:{shippingCost?:{value?:string;currency?:string}}[];seller?:{username?:string;feedbackScore?:number;feedbackPercentage?:string};buyingOptions?:string[]};
-export async function searchEbay(query:string):Promise<Listing[]>{
- const token=config("EBAY_ACCESS_TOKEN");if(!token)return [];
- const url=new URL("https://api.ebay.com/buy/browse/v1/item_summary/search");url.searchParams.set("q",query);url.searchParams.set("limit","30");url.searchParams.set("filter","buyingOptions:{FIXED_PRICE}");
- const response=await fetch(url,{headers:{Authorization:`Bearer ${token}`,"X-EBAY-C-MARKETPLACE-ID":"EBAY_US"},signal:AbortSignal.timeout(18000)});
- if(!response.ok)throw new Error(response.status===401?"eBay token expired or invalid. Refresh it in source setup.":`eBay search unavailable (${response.status}).`);
- const body=await response.json() as {itemSummaries?:EbayItem[]};
- return (body.itemSummaries??[]).filter(i=>i.itemWebUrl&&marketplaceForUrl(i.itemWebUrl)).map(i=>({id:`ebay-${i.itemId}`,title:text(i.title),platform:"eBay",url:i.itemWebUrl!,image:i.image?.imageUrl?.startsWith("https://")?i.image.imageUrl:undefined,price:amount(i.price?.value),currency:text(i.price?.currency)||"USD",shipping:null,size:"Not specified",condition:text(i.condition)||"Not specified",lane:"legit",seller:text(i.seller?.username)||"Seller unknown",evidence:{...unknownEvidence,reviews:amount(i.seller?.feedbackScore),positiveRate:amount(i.seller?.feedbackPercentage)===null?null:Number(i.seller?.feedbackPercentage)/100},availability:"available",match:"related",source:"live",checkedAt:observed(),notes:"Live eBay keyword result. Check the photos, model, size and condition; matching is not verified. Feedback score is not a sales count. Destination shipping and taxes must be checked on eBay.",authenticity:"Resale search candidate · authenticity unverified"}));
+import { createAdapters } from "./discovery/providers";
+import { discover } from "./discovery/search";
+import type { SearchInput } from "./discovery/types";
+import type { ItemIntent } from "./item-intent";
+
+// Server routes only. Keys and the fingerprint never leave the server.
+let fingerprint = "";
+let adapters: ReturnType<typeof createAdapters> | undefined;
+export function searchSources(
+  input: SearchInput,
+  fields: Partial<ItemIntent["fields"]>,
+) {
+  const settings = {
+    ebay: {
+      clientId: config("EBAY_CLIENT_ID"),
+      clientSecret: config("EBAY_CLIENT_SECRET"),
+      accessToken: config("EBAY_ACCESS_TOKEN"),
+    },
+    braveKey: config("BRAVE_SEARCH_API_KEY"),
+    cache: { ebay: cacheTTL("EBAY"), brave: cacheTTL("BRAVE") },
+  };
+  const next = JSON.stringify(settings);
+  if (!adapters || next !== fingerprint) {
+    adapters = createAdapters(settings);
+    fingerprint = next;
+  }
+  return discover(adapters, input, fields);
 }
-export async function searchBrave(query:string,lane:Lane):Promise<Listing[]>{
- const key=config("BRAVE_SEARCH_API_KEY");if(!key)return [];
- const domains=marketplaces.filter(m=>m.lanes.includes(lane)).map(m=>`site:${m.domain}`).join(" OR ");
- const url=new URL("https://api.search.brave.com/res/v1/web/search");url.searchParams.set("q",`${searchQuery(query,lane)} (${domains})`);url.searchParams.set("count","20");
- const response=await fetch(url,{headers:{Accept:"application/json","X-Subscription-Token":key},signal:AbortSignal.timeout(18000)});
- if(!response.ok)throw new Error(`Web search unavailable (${response.status}). Check your Brave Search key and quota.`);
- const body=await response.json() as {web?:{results?:{title?:string;url?:string;description?:string;thumbnail?:{src?:string}}[]}};
- return (body.web?.results??[]).flatMap((item,index)=>{const market=marketplaceForUrl(item.url??"");if(!market||!market.lanes.includes(lane))return [];const description=text(item.description).replace(/<[^>]*>/g,"");return [{id:`web-${index}-${encodeURIComponent(item.url!)}`,title:text(item.title).replace(/<[^>]*>/g,""),platform:market.name,url:item.url!,price:null,currency:"USD",shipping:null,size:"Not specified",condition:"Not specified",lane,seller:"Seller evidence unavailable",evidence:{...unknownEvidence},availability:"unknown" as const,match:"related" as const,source:"live" as const,checkedAt:observed(),notes:`Indexed search result; it may be a listing, category page, or stale result. Price, stock, seller metrics and authenticity require verification. ${description.slice(0,650)}`,authenticity:lane==="reps"?"Replica search candidate · classification unverified":"Resale search candidate · authenticity unverified"}];});
+function cacheTTL(provider: string) {
+  if (config(`${provider}_STORAGE_ALLOWED`) !== "true") return 0;
+  const seconds = Number(config(`${provider}_CACHE_TTL_SECONDS`));
+  return Number.isFinite(seconds) ? Math.max(0, Math.min(300, seconds)) : 0;
 }

@@ -16,32 +16,33 @@ The first target is a reliable personal research assistant. Universal scraping a
 - [x] Proxy cost calculator and four dated research snapshots.
 - [x] Unit tests for scoring, cost and deduplication; API smoke checks.
 
-Limitations: provider credentials are required; live adapters have not been tested with a real account. Image identification suggests words but does not perform visual retrieval. Seller evidence is sparse, records are session-only, prices are not normalized across currencies, reference offers can become stale, and search can return category pages. See [current setup](README.md) and [research and additional sources](docs/RESEARCH.md).
+Limitations: provider credentials are required; live adapters have not been tested with a real account. Image identification suggests words but does not perform visual retrieval. Seller evidence is sparse, records are session-only, prices are not normalized across currencies, reference offers can become stale, and unsupported listing URL shapes are skipped. The v0.2 foundation below supersedes the baseline retrieval behavior. See [current setup](README.md) and [research and additional sources](docs/RESEARCH.md).
 
 ## Milestones
 
-| Order | Milestone | User-visible outcome | Depends on |
-| --- | --- | --- | --- |
-| M1 | Reliable retrieval and evidence records | Searches report what each source actually returned, failed to return, or cannot access | Provider access and keys |
-| M2 | Item identity and visual matching | Exact model, finish, size and alternatives are distinguished | M1 |
-| M3 | Seller reliability with inspectable evidence | Scores are reproducible and missing data is explicit | M1; M2 for price comparisons |
-| M4 | Delivered-cost deal ranking | Comparable offers can be ranked by realistic cost and risk | M2–M3 |
-| M5 | More marketplaces and proxy routes | More useful inventory with an honest access method per source | M1; M4 for cost ranking |
-| M6 | Saved searches and change alerts | Finds survive reloads; meaningful price/stock changes are surfaced | M1–M5 |
-| M7 | Multi-user service readiness | Public service can run within secure access and spend limits | Separate deployment decision |
+| Order | Milestone                                    | User-visible outcome                                                                   | Depends on                   |
+| ----- | -------------------------------------------- | -------------------------------------------------------------------------------------- | ---------------------------- |
+| M1    | Reliable retrieval and evidence records      | Searches report what each source actually returned, failed to return, or cannot access | Provider access and keys     |
+| M2    | Item identity and visual matching            | Exact model, finish, size and alternatives are distinguished                           | M1                           |
+| M3    | Seller reliability with inspectable evidence | Scores are reproducible and missing data is explicit                                   | M1; M2 for price comparisons |
+| M4    | Delivered-cost deal ranking                  | Comparable offers can be ranked by realistic cost and risk                             | M2–M3                        |
+| M5    | More marketplaces and proxy routes           | More useful inventory with an honest access method per source                          | M1; M4 for cost ranking      |
+| M6    | Saved searches and change alerts             | Finds survive reloads; meaningful price/stock changes are surfaced                     | M1–M5                        |
+| M7    | Multi-user service readiness                 | Public service can run within secure access and spend limits                           | Separate deployment decision |
 
 ### M1 — Make live retrieval dependable
 
-- [ ] Introduce an adapter contract: source ID, supported operations, auth status, regional scope, timeout, pagination, rate limit, and extraction permission.
-- [ ] Store typed `SearchRun`, `Listing`, `Seller`, `EvidenceObservation`, and `SourceStatus` records. Each observation has a source URL, observed time, method, raw value, normalized value and optional expiry. Keep secrets out of these records.
-- [ ] Separate `live_api`, `indexed_page`, `manual_input`, and `reference_snapshot` provenance. Model availability independently as observed available, sold, unknown or stale.
-- [ ] Add provider-response validation, bounded concurrency, cancellation, quota-aware retries with jitter, `Retry-After` handling, permitted caching, and circuit breaking for repeated failures. Each provider needs an explicit storage/retention policy; never assume API-result storage is licensed.
-- [ ] Replace manually pasted eBay bearer tokens with server-side application-token acquisition via client credentials and expiry-aware re-minting. This is distinct from a user-token refresh grant. Confirm production eligibility and API limits first.
-- [ ] Paginate eBay and Brave within a request budget. Preserve per-source errors when some sources succeed. Split queries by source/language if one broad query starves smaller marketplaces.
-- [ ] Extract item IDs and distinguish product/listing URLs from shops, search pages and editorial results. Preserve Taobao/Weidian query-string IDs and prefer richer evidence when merging duplicates.
-- [ ] Make fallback snapshots opt-in or a clearly separate reference group. A new title must not silently inherit an old example's match confidence.
+- [x] Adapter contract with ID, operations, configuration status, scope, deadline, pagination/request budgets, concurrency and access method.
+- [x] Typed `SearchRun`, `Listing`, `Seller`, `EvidenceObservation` and `SourceStatus` records held for the browser session. Source URL, raw/normalized value, method, observed time and expiry are inspectable; no database yet.
+- [x] Separate API, index, manual and reference provenance; availability and freshness are independent.
+- [x] Schema validation, partial recovery, cancellation through queue/fetch/body/backoff, bounded retries, Retry-After/Brave quota windows, opt-in permitted memory caching and circuit cooldowns.
+- [x] Coalesced server-side eBay application tokens, expiry-aware re-minting and one rejected-token recovery. Legacy bearer token remains optional.
+- [ ] Validate real production eBay eligibility, quotas and successful text/photo requests using the owner's configured account; verify Brave account access/storage terms.
+- [x] Bounded eBay item-offset and Brave page-index pagination, language/source groups, and source errors alongside healthy results.
+- [x] Structural listing ID extraction, tracking cleanup, variation-preserving eBay offer identity and richer-evidence deduplication.
+- [x] Dated examples load only through an explicit button; search failures never substitute them.
 
-**Exit checks:** recorded provider fixtures cover success, malformed data, expired credentials, 429, timeout, empty pages and pagination. A healthy source still renders when another fails. Each result shows its provenance and freshness. An expired token recovers once without a retry loop. No paid keys are needed for CI.
+**Validation:** 46 offline unit tests and API smoke checks cover success, malformed rows/envelopes, expired credentials, 429, deadlines, empty pages, pagination, queued cancellation, shared token recovery, partial-source failure, caching and evidence semantics. Fixtures are synthetic contract fixtures, not recorded production traffic. Browser checks cover the visible setup/error states and example separation. Production-account exit checks remain open.
 
 ### M2 — Find the right garment
 
@@ -52,17 +53,21 @@ Limitations: provider credentials are required; live adapters have not been test
 - [ ] Use model/variant metadata plus image similarity for reranking. Keep exact item, same model/different finish, and visual alternative separate.
 - [ ] Detect cross-listing candidates using canonical item IDs, image hashes, seller identifiers and descriptions. Photo reuse alone is a review signal, not proof of fraud or shared identity.
 
+**Implemented foundation:** editable brand/model/style code/finish/size/category/material/season/color/silhouette fields; conservative metadata ranking with missing fields and conflicts; full style-code suffix and eBay variation regression tests; scoped Japanese/Chinese query hypotheses; eBay photo-search adapter and UI. Target edits currently affect ranking; the main title controls retrieval. Measurements, condition normalization, crop/OCR, embeddings, broader translation validation and evaluation remain open, so the full M2 checkboxes below are not claimed complete.
+
 **Exit checks:** create a held-out evaluation set with at least 50 representative searches, including the degrade-versus-black-wax jeans example. Proposed release targets: at least 80% precision among the first five results and fewer than 5% wrong variants labelled exact. These are targets, not current measurements. Report text-only versus visual performance, latency and cost.
 
 ### M3 — Make seller trust defensible
+
+Foundation added: eBay net feedback score is now separate from reviews and sales, raw invalid versus absent values are distinguishable, and corrections append to evidence history. Calibration, reporting periods and the full scoring model below remain open.
 
 - [ ] Store sales, active inventory, feedback score, review count, rating distribution, account age, recent activity and buyer protection as separate fields. Never equate eBay feedback score with transactions.
 - [ ] Record the reporting period and source for every metric. Treat inconsistent counts and missing history as uncertainty; zero active listings next to a live offer may be stale data.
 - [ ] Show seller reliability, item authenticity evidence, buyer protection and evidence coverage separately. A single green number must not imply authentication.
 - [ ] Keep numeric scoring versioned and deterministic. Support unknown values, stale evidence, small-sample feedback, negative feedback and evidence provenance.
 - [ ] Build price-anomaly references only from compatible item, condition, currency and authenticity groups; exclude duplicate offers, stale listings and auction starting bids. Track whether the benchmark uses asking or realized prices.
-- [ ] Retain the requested rule: zero verified sales + zero verified active listings + price below 40% of a supported comparable median caps trust at 25. Keep the underlying reasons visible.
-- [ ] Let users inspect and correct imported observations without overwriting the original source record. Distinguish user corrections from independently observed facts.
+- [x] Retain the requested rule: zero verified sales + zero verified active listings + price below 40% of a supported comparable median caps trust at 25. Keep the underlying reasons visible.
+- [x] Let users inspect and correct imported observations without overwriting the original source record. Distinguish user corrections from independently observed facts.
 
 **Exit checks:** an identical evidence record and score version always produces the same score and explanations. Unknown metrics never become zero. Authentic and replica prices never form one comparison pool. False-positive review covers new legitimate sellers, clearance stock, inactive established sellers and copied catalog photos. Do not describe the score as a fraud probability without a labelled outcome dataset and calibration study.
 

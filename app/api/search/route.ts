@@ -1,17 +1,66 @@
-import { readJson, connections } from "@/lib/server-config";
-import { searchBrave, searchEbay } from "@/lib/search-providers";
-import { matchesReference, referenceListings } from "@/lib/reference-listings";
-import type { Listing, SearchResponse } from "@/lib/finder-types";
-import { deduplicateListings } from "@/lib/listing-identity";
-export async function POST(request:Request){
- let input;try{input=await readJson(request);}catch(error){return Response.json({error:error instanceof Error?error.message:"Invalid request"},{status:400});}
- if(typeof input?.query!=="string"||input.query.trim().length<2||input.query.length>180||!["legit","reps"].includes(input.lane))return Response.json({error:"Enter 2–180 characters and choose Legit or Reps."},{status:400});
- const {query,lane}=input;const ready=connections();
- const results=await Promise.allSettled([lane==="legit"?searchEbay(query):Promise.resolve([]),searchBrave(query,lane)]);
- const listings:Listing[]=[],errors:string[]=[];
- for(const result of results){if(result.status==="fulfilled")listings.push(...result.value);else errors.push(result.reason instanceof Error?result.reason.message:"A source could not be reached.");}
- const unique=deduplicateListings(listings);
- const hasLive=unique.length>0;const references=!hasLive&&lane==="legit"&&matchesReference(query);
- const body:SearchResponse={listings:hasLive?unique:references?referenceListings:[],mode:hasLive?"live":references?"reference":"links",errors,message:hasLive?"Connected search results · verify matching, stock and seller evidence on the source.":references?"Researched listings · Sep 12, 2026 · recheck price and availability on the source. Live discovery is not configured or returned no matches.":(!ready.search&&(!ready.ebay||lane==="reps"))?"Live discovery is not configured. Open the marketplace searches below or add a listing to compare.":"No results returned from connected sources. Try a shorter title or open a marketplace below."};
- return Response.json(body,{headers:{"Cache-Control":"no-store"}});
+import { z } from "zod";
+import { readJson } from "@/lib/server-config";
+import { searchSources } from "@/lib/search-providers";
+import { intentFields } from "@/lib/item-intent";
+
+const schema = z
+  .object({
+    query: z.string().trim().min(2).max(180),
+    lane: z.enum(["legit", "reps"]),
+    fields: z
+      .object(
+        Object.fromEntries(
+          intentFields.map((field) => [
+            field,
+            z.string().trim().max(100).nullable().optional(),
+          ]),
+        ),
+      )
+      .strict()
+      .optional(),
+    image: z
+      .string()
+      .max(7_000_000)
+      .regex(/^data:image\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/]+={0,2}$/)
+      .optional(),
+  })
+  .strict();
+export async function POST(request: Request) {
+  let raw;
+  try {
+    raw = await readJson(request, 7_100_000);
+  } catch {
+    return Response.json(
+      { error: "Send same-origin JSON within the 7 MB request limit." },
+      { status: 400 },
+    );
+  }
+  const parsed = schema.safeParse(raw);
+  if (!parsed.success)
+    return Response.json(
+      {
+        error:
+          "Enter 2–180 characters, a valid lane, and optional target fields or a JPG, PNG or WebP photo.",
+      },
+      { status: 400 },
+    );
+  const { query, lane, fields, image } = parsed.data;
+  const imageBase64 = image?.split(",")[1];
+  if (
+    imageBase64 &&
+    (lane !== "legit" ||
+      imageBase64.length % 4 !== 0 ||
+      (imageBase64.length * 3) / 4 -
+        (imageBase64.endsWith("==") ? 2 : imageBase64.endsWith("=") ? 1 : 0) >
+        5 * 1024 * 1024)
+  )
+    return Response.json(
+      { error: "Photo search supports Legit and images up to 5 MB." },
+      { status: 400 },
+    );
+  const body = await searchSources(
+    { query, lane, imageBase64, signal: request.signal },
+    fields ?? {},
+  );
+  return Response.json(body, { headers: { "Cache-Control": "no-store" } });
 }
