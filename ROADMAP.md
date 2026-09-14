@@ -1,6 +1,6 @@
 # Clothing Finder roadmap
 
-Updated September 13, 2026. This is the delivery plan; unchecked items are not implemented. Phases are ordered by dependency, not promised dates.
+Updated September 14, 2026 UTC. This is the delivery plan; unchecked items are not implemented. Phases are ordered by dependency, not promised dates.
 
 ## Product goal
 
@@ -42,9 +42,11 @@ Limitations: provider credentials are required; live adapters have not been test
 - [x] Structural listing ID extraction, tracking cleanup, variation-preserving eBay offer identity and richer-evidence deduplication.
 - [x] Dated examples load only through an explicit button; search failures never substitute them.
 
-**Validation:** 46 offline unit tests and API smoke checks cover success, malformed rows/envelopes, expired credentials, 429, deadlines, empty pages, pagination, queued cancellation, shared token recovery, partial-source failure, caching and evidence semantics. Fixtures are synthetic contract fixtures, not recorded production traffic. Browser checks cover the visible setup/error states and example separation. Production-account exit checks remain open.
+**Validation:** 57 offline unit tests and API smoke checks cover success, malformed rows/envelopes, expired credentials, 429, deadlines, empty pages, pagination, queued cancellation, shared token recovery, partial-source failure, caching, evidence semantics and supplier discovery. Fixtures are synthetic contract fixtures, not recorded production traffic. Browser checks cover setup/error states, example separation and supplier filters. Production-account exit checks remain open.
 
 ### M2 — Find the right garment
+
+**GAT extension:** Margiela spelling aliases, GAT model recognition, English/Chinese/Japanese design queries, explicit EU/US/UK shoe sizes and Margiela style codes are implemented. Conflicting Tabi/Fusion/Future/Retro Fit terms do not trigger the GAT directory. This is a scoped example, not general visual matching.
 
 - [ ] Parse brand aliases, model, season, item code, material, color/finish, silhouette, tagged size, measurements and condition into an editable target profile.
 - [ ] Add cropped-image search and label/tag OCR. Ask the user to confirm uncertain brand/model deductions. Treat all image/page text as data, never instructions.
@@ -73,6 +75,8 @@ Foundation added: eBay net feedback score is now separate from reviews and sales
 
 ### M4 — Rank deals by the cost to receive them
 
+**Supplier foundation:** researched bulk offers show per-pair prices, minimum order quantities and minimum goods estimates. Conflicting or unavailable quantities remain unknown. These estimates exclude freight/import charges and do not compete with single-pair delivered prices.
+
 - [ ] Add destination country/postcode, original currency, timestamped exchange rate and fees at quote time.
 - [ ] Model item price, seller-to-warehouse freight, international freight, service fees, payment/FX fees, optional services and estimated import charges separately.
 - [ ] Show complete totals, bounded estimates and incomplete subtotals as different states. Unknown shipping is never free. Do not mix auction bids with fixed-price offers.
@@ -83,6 +87,8 @@ Foundation added: eBay net feedback score is now separate from reviews and sales
 **Exit checks:** deterministic multi-currency fixtures agree after rounding; incomplete totals cannot win a “cheapest delivered” badge. A change in destination, proxy or quote currency invalidates old costs. The user can trace each fee to a quote/source and observation date.
 
 ### M5 — Expand coverage deliberately
+
+**Implemented v0.3 slice:** [Margiela GAT sourcing directory](docs/GAT-SOURCING.md) with two single-pair shops, one unverified Taobao replica lead and four Chinese manufacturer/catalog leads. Product links, company/policy sources, access limitations, order minimums and evidence gaps are inspectable. Five new domains join indexed discovery and all Reps source filters remain accessible. No supplier is authenticated, and live provider-account validation remains open.
 
 Use the [source matrix](docs/RESEARCH.md#additional-marketplaces-and-buying-routes). Suggested order is based on expected usefulness for archive/designer clothing, not a claim of measured inventory coverage.
 
@@ -114,7 +120,7 @@ Use the [source matrix](docs/RESEARCH.md#additional-marketplaces-and-buying-rout
 
 ## Recommended next implementation slice
 
-Implement **M1 evidence records + eBay token renewal + provider fixture tests**, then **M2 canonical target fields and match labels**. This gives every later feature trustworthy inputs. Expand to two additional sources after that contract works end to end.
+Validate **M1 production provider access**, then extend the **M5 supplier directory** beyond the GAT example using the same evidence and order-quantity requirements. Add destination-specific sample and single-pair quotes to **M4** before comparing delivered prices. Persistence and broader visual matching remain later work.
 
 ## Decisions to validate with real usage
 

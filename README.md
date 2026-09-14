@@ -2,7 +2,7 @@
 
 A clothing discovery workspace with Legit and Reps views, title/image inputs, researched resale listings, seller evidence, and a proxy cost calculator.
 
-[Roadmap](ROADMAP.md) · [Research and additional marketplaces](docs/RESEARCH.md) · [CI](https://github.com/anjaneys/clothing-finder/actions/workflows/ci.yml)
+[Roadmap](ROADMAP.md) · [GAT supplier research](docs/GAT-SOURCING.md) · [More marketplaces](docs/RESEARCH.md) · [CI](https://github.com/anjaneys/clothing-finder/actions/workflows/ci.yml)
 
 **Status: retrieval foundation implemented; provider-account validation pending.** Live adapters need provider credentials and account testing. Research snapshots and source handoffs are labelled separately from live API results. The roadmap documents planned work, not capabilities already delivered.
 
@@ -30,9 +30,10 @@ npm start
 ## Included
 
 - Title search and marketplace handoffs: Grailed, Depop, eBay, Vinted, Facebook Marketplace, Etsy, Poshmark, Mercari Japan, Rakuma and Yahoo! Auctions.
-- Reps searches: Taobao, 1688 and indexed Weidian pages, with additional Chinese keywords for the Rick Owens example. Results are candidates; site location does not establish authenticity.
+- Default **Maison Margiela GAT demo** in Reps: seven dated product/catalog links, with filters for single-pair shops, replica leads, bulk factories and seller location. Each card shows available prices, order minimums, size/material differences, shipping routes and inspectable evidence. Independent brands are labelled separately from replicas.
+- Reps discovery covers Taobao, 1688, Weidian, MADEN, NOVESTA Japan, Made-in-China, Bona Shoes and Huangxuan. Chinese marketplace queries and English direct-shop/factory queries use GAT terms for this demo. Existing Rick Owens jeans expansion remains supported.
 - An explicit **Load dated jeans examples** button loads four real Rick Owens research snapshots, with prices, seller evidence and source links. Two close degrade matches and two solid-black alternatives. These are not guaranteed live inventory.
-- Marketplace, waist and USD budget filters; match, USD price and trust sorting. Unknown/non-USD prices are hidden by the USD budget filter and sorted after priced USD results.
+- Marketplace, item-size and USD budget filters for additional live listings; match, USD price and trust sorting. The supplier directory has its own purchase/location filters and does not mix bulk quotes into individual deal ranking. Unknown/non-USD prices are hidden by the live USD budget filter and sorted after priced USD results.
 - Image upload and optional image-to-search-term identification. Images remain in browser memory until you choose **Identify image** (OpenAI) or **Search photo on eBay** (eBay Browse). Both require their corresponding credentials. No permanent image storage or app caching of photo searches.
 - Editable target fields and deterministic title-based matching distinguish model words, full style codes, conflicting variants and missing information. These fields refine ranking; the search title controls provider retrieval. No claim of validated visual similarity or exact-item accuracy.
 - Per-source status reports include pages, request counts, skipped records, partial coverage, rate limits, cancellation and setup failures. Healthy results survive another source failing.
@@ -52,7 +53,7 @@ Copy `.env.example` to `.env`, fill in your own optional credentials, then resta
 | `OPENAI_API_KEY`                        | Suggested clothing search terms from images                                 | [Image inputs](https://developers.openai.com/api/docs/guides/images-vision). Requires API access and billing.                                                                                                                                  |
 | `OPENAI_VISION_MODEL`                   | Image-capable model                                                         | Default `gpt-4.1-mini`; configurable for your account.                                                                                                                                                                                         |
 
-Without keys, searches return per-source setup states and zero live listings. Marketplace links work, and dated jeans examples load only when explicitly requested. Arbitrary image identification needs the vision key. Real provider-account requests remain untested because credentials were not supplied.
+Without keys, searches return per-source setup states and zero live listings. The dated GAT directory and marketplace links work; dated jeans examples load only when explicitly requested. The official GAT reference photo is display-only; upload your own image to identify or search it. Arbitrary image identification needs the vision key. Real provider-account requests remain untested because credentials were not supplied.
 
 Private or login-only inventory is not crawled. Login, CAPTCHA and regional restrictions are not bypassed. Direct marketplace APIs require permission and connector-specific work. This is a local starter; public deployment with paid keys requires authentication, rate limits and production operations.
 
@@ -62,7 +63,7 @@ Each source has a 20-second deadline including queue time, at most three pages a
 
 Provider result caching defaults off. Only after verifying your agreement permits storage, set the matching `EBAY_STORAGE_ALLOWED` or `BRAVE_STORAGE_ALLOWED` to `true` and its `*_CACHE_TTL_SECONDS` to 1–300. Cache entries preserve original observation times; uploaded-photo searches are never cached. Search runs, manual observations and corrections otherwise live only in the current browser session; no database is added. Live API observations get a 15-minute recheck time. This is a UI freshness heuristic, not a provider stock guarantee or retention license.
 
-Brave uses separate English and Japanese marketplace groups for Legit, and Chinese search hypotheses for supported Rick Owens jeans in Reps. Returned URLs must structurally identify a listing. This deliberately skips unsupported URL shapes instead of presenting category pages as offers. Providers can still return irrelevant or stale listings.
+Brave uses separate English and Japanese marketplace groups for Legit. Reps allocates its three-page budget across Chinese marketplaces, English direct shops and English factory product pages. Returned URLs must structurally identify a listing, preserving supported shop variant IDs. Category pages such as XuFan's catalog remain research links instead of indexed offers. Providers can still return irrelevant or stale listings.
 
 ## Seller scoring
 
@@ -76,6 +77,7 @@ eBay net feedback score is separate from seller review and sales counts, may be 
 
 - `components/finder.tsx`: interface, details, filters, session entries and costs.
 - `lib/reference-listings.ts`: research snapshots.
+- `components/sourcing-directory.tsx`, `lib/sourcing-leads.ts`: GAT supplier directory, source evidence, purchase filters and MOQ goods estimates.
 - `lib/marketplaces.ts`: source links and routes.
 - `lib/search-providers.ts`: server-only provider configuration.
 - `lib/discovery/`: typed adapters, bounded transport, eBay token lifecycle and search runs.
@@ -87,7 +89,7 @@ eBay net feedback score is separate from seller review and sales counts, may be 
 
 React/TypeScript on Vinext/Vite with Cloudflare-compatible output. The source repository is public; the application runs locally. No public application deployment is configured.
 
-GitHub Actions installs from the lockfile, checks TypeScript, runs 46 provider/identity/evidence/scoring tests, builds the app, and smoke-tests the API without paid provider credentials.
+GitHub Actions installs from the lockfile, checks TypeScript, runs 57 provider/identity/evidence/scoring/sourcing tests, builds the app, and smoke-tests the API without paid provider credentials.
 
 ## Research
 

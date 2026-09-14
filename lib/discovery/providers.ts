@@ -377,7 +377,9 @@ export function createAdapters(
               currency,
               shipping: null,
               size: parseIntent(item.title).fields.size
-                ? `W${parseIntent(item.title).fields.size}`
+                ? /^\d{2}$/.test(parseIntent(item.title).fields.size!)
+                  ? `W${parseIntent(item.title).fields.size}`
+                  : parseIntent(item.title).fields.size!
                 : "Not specified",
               condition: item.condition ?? "Not specified",
               lane: "legit",
@@ -485,21 +487,48 @@ export function createAdapters(
       const sources = marketplaces.filter((m) => m.lanes.includes(input.lane));
       const groups =
         input.lane === "reps"
-          ? [{ markets: sources, language: "zh" }]
+          ? [
+              {
+                markets: sources.filter(
+                  (m) => !m.repsGroup || m.repsGroup === "marketplace",
+                ),
+                language: "zh",
+                similar: false,
+              },
+              {
+                markets: sources.filter((m) => m.repsGroup === "direct_shop"),
+                language: "en",
+                similar: true,
+              },
+              {
+                markets: sources.filter((m) => m.repsGroup === "factory"),
+                language: "en",
+                similar: true,
+              },
+            ]
           : [
               {
                 markets: sources.filter((m) => !japanIds.includes(m.id)),
                 language: "en",
+                similar: false,
               },
               {
                 markets: sources.filter((m) => japanIds.includes(m.id)),
                 language: "ja",
+                similar: false,
               },
             ];
-      const queue = groups.map((group) => ({ ...group, offset: 0 }));
+      const queue = groups
+        .filter((group) => group.markets.length)
+        .map((group) => ({ ...group, offset: 0 }));
       while (queue.length && progress.pages < braveDefinition.maxPages) {
         const group = queue.shift()!;
         const query =
+          (group.similar
+            ? variants.find(
+                (v) => v.reason === "Similar-design supplier search",
+              )?.text
+            : undefined) ??
           variants.find((v) => v.language === group.language)?.text ??
           input.query;
         const url = new URL("https://api.search.brave.com/res/v1/web/search");
@@ -562,10 +591,12 @@ export function createAdapters(
                 match: "related",
                 source: "live",
                 checkedAt: new Date(now()).toISOString(),
-                notes: `Indexed listing candidate; stock, price and seller history are unverified. ${cleanText(item.description ?? "").slice(0, 500)}`,
+                notes: `Indexed ${market.repsGroup === "factory" ? "factory product candidate; minimum order, sample price and freight require verification" : "listing candidate"}; stock, price and seller history are unverified. ${cleanText(item.description ?? "").slice(0, 500)}`,
                 authenticity:
                   input.lane === "reps"
-                    ? "Replica search candidate · classification unverified"
+                    ? market.repsGroup
+                      ? "Similar-design supplier candidate · branding unverified"
+                      : "Replica search candidate · classification unverified"
                     : "Resale search candidate · authenticity unverified",
               },
               "indexed_page",

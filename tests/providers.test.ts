@@ -297,28 +297,31 @@ test("Brave uses page indexes and excludes category pages", async () => {
   const offsets: string[] = [];
   const [, brave] = createAdapters(
     config,
-    runtime(async (url) => {
-      const offset = new URL(String(url)).searchParams.get("offset")!;
-      offsets.push(offset);
-      return json({
-        query: { more_results_available: offset === "0" },
-        web: {
-          results: [
-            {
-              title: "Rick Owens jeans",
-              url: "https://item.taobao.com/item.htm?id=1234",
-            },
-            {
-              title: "search page",
-              url: "https://s.taobao.com/search?q=jeans",
-            },
-          ],
-        },
-      });
-    }),
+    runtime(
+      async (url) => {
+        const offset = new URL(String(url)).searchParams.get("offset")!;
+        offsets.push(offset);
+        return json({
+          query: { more_results_available: offset === "0" },
+          web: {
+            results: [
+              {
+                title: "Rick Owens jeans",
+                url: "https://item.taobao.com/item.htm?id=1234",
+              },
+              {
+                title: "search page",
+                url: "https://s.taobao.com/search?q=jeans",
+              },
+            ],
+          },
+        });
+      },
+      { maxPages: 5 },
+    ),
   );
   const result = await discover([brave], { ...input, lane: "reps" });
-  assert.deepEqual(offsets, ["0", "1"]);
+  assert.deepEqual(offsets, ["0", "0", "0", "1", "1"]);
   assert.equal(result.listings.length, 1);
   assert.equal(result.listings[0].price, null);
   assert.equal(result.listings[0].availability, "unknown");

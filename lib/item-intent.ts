@@ -35,6 +35,19 @@ const normalize = (s: string) =>
     .trim();
 const code = (s: string) => normalize(s).replace(/[^a-z0-9]/g, "");
 
+export function isGatQuery(query: string) {
+  const q = normalize(query);
+  if (/\btabi\b|\bfusion\b|\bfuture\b|\bretro\s+fit\b|タビ/.test(q))
+    return false;
+  return (
+    /\bgats?\b|german\s+(?:army\s+)?trainers?|ジャーマントレーナー|德训鞋/.test(
+      q,
+    ) ||
+    (/\bmarg(?:iela|ella|iella)\b|マルジェラ/.test(q) &&
+      /\breplica\b.*\b(?:sneakers?|shoes?)\b/.test(q))
+  );
+}
+
 /** Deterministic parsing of explicit words, not visual recognition or authentication. */
 export function parseIntent(
   query: string,
@@ -46,6 +59,8 @@ export function parseIntent(
   ) as ItemIntent["fields"];
   if (/\brick\s+ow(?:ens?|ns)\b|\bdrkshdw\b|リック.?オウエンス/i.test(q))
     fields.brand = "Rick Owens";
+  else if (/\bmarg(?:iela|ella|iella)\b|マルジェラ/.test(q))
+    fields.brand = "Maison Margiela";
   else {
     const brand = [
       "Maison Margiela",
@@ -68,17 +83,28 @@ export function parseIntent(
     fields.model = "Bias Bootcut";
   else if (/\bbolan\b/.test(q)) fields.model = "Bolan Bootcut";
   else if (/\bramones\b/.test(q)) fields.model = "Ramones";
+  else if (isGatQuery(q)) fields.model = "German Army Trainer";
   fields.styleCode =
     query
       .match(/\b(?:DU|RU|RR|DS)\d{2}[A-Z]\d{4}(?:-[A-Z0-9]{2,15})*\b/i)?.[0]
       .toUpperCase() ?? null;
+  fields.styleCode ??=
+    query.match(/\bS\d{2}WS\d{4}P\d{4}[A-Z0-9]{3,8}\b/i)?.[0].toUpperCase() ??
+    null;
   if (/degrad[eé]?|gradient|ombr[eé]|渐变|グラデーション/.test(q))
     fields.finish = "Degrade";
   else if (/\bwax(?:ed)?\b|涂层/.test(q)) fields.finish = "Wax";
   fields.size = query.match(/\b(?:W|waist[ :]*)(\d{2})\b/i)?.[1] ?? null;
+  if (isGatQuery(q)) {
+    const shoeSize = query.match(/\b(EU|US|UK)\s?(\d{1,2}(?:\.5)?)\b/i);
+    fields.size = shoeSize
+      ? `${shoeSize[1].toUpperCase()} ${shoeSize[2]}`
+      : null;
+  }
   if (/jeans|denim|牛仔|デニム/.test(q)) fields.category = "Jeans";
   else if (/boots?\b/.test(q)) fields.category = "Boots";
-  else if (/sneakers?|trainers/.test(q)) fields.category = "Sneakers";
+  else if (/sneakers?|trainers/.test(q) || isGatQuery(q))
+    fields.category = "Sneakers";
   else if (/jacket|blazer/.test(q)) fields.category = "Jacket";
   else if (/\bdress\b/.test(q)) fields.category = "Dress";
   if (/denim|牛仔|デニム/.test(q)) fields.material = "Denim";
@@ -191,6 +217,23 @@ export function queryVariants(intent: ItemIntent) {
       text: `${intent.fields.brand ?? ""} ${intent.fields.styleCode}`.trim(),
       reason: "Style code",
     });
+  if (intent.fields.model === "German Army Trainer") {
+    result.push({
+      language: "en",
+      text: "German army trainer leather suede gum sole",
+      reason: "Similar-design supplier search",
+    });
+    result.push({
+      language: "zh",
+      text: "德训鞋 真皮 麂皮 生胶底",
+      reason: "Chinese GAT design terms",
+    });
+    result.push({
+      language: "ja",
+      text: "ジャーマントレーナー レザー スエード ガムソール",
+      reason: "Japanese GAT design terms",
+    });
+  }
   if (
     intent.fields.brand === "Rick Owens" &&
     intent.fields.category === "Jeans"

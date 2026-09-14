@@ -17,6 +17,22 @@ export function identifyListingUrl(
     return null;
   }
   switch (market.id) {
+    case "maden":
+    case "novesta":
+      itemId = path.match(/^\/(?:en\/)?products\/([^/]+)\/?$/)?.[1] ?? null;
+      break;
+    case "madeinchina":
+      itemId =
+        path.match(
+          /\/(?:product-detail|product\/)([A-Za-z0-9]+)\/[^/]+\.html$/,
+        )?.[1] ?? null;
+      break;
+    case "bona":
+      itemId = path.match(/^\/product-catalog\/([^/]+)\/?$/)?.[1] ?? null;
+      break;
+    case "huangxuan":
+      itemId = path.match(/^\/oem-shoes\/([^/]+)\.html$/)?.[1] ?? null;
+      break;
     case "ebay":
       itemId =
         path.match(/\/(?:itm)\/(?:[^/]+\/)?(\d{9,15})(?:\/|$)/)?.[1] ?? null;
@@ -73,6 +89,11 @@ export function identifyListingUrl(
   }
   if (market.id === "ebay" && itemId)
     itemId = `v1|${itemId}|${/^\d+$/.test(url.searchParams.get("var") ?? "") ? url.searchParams.get("var") : "0"}`;
+  if ((market.id === "maden" || market.id === "novesta") && itemId) {
+    const variant = url.searchParams.get("variant");
+    if (variant && /^\d+$/.test(variant))
+      itemId = `${itemId}|variant:${variant}`;
+  }
   return itemId
     ? { sourceId: market.id, itemId, canonicalUrl: listingIdentity(raw) }
     : null;

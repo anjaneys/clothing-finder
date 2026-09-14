@@ -7,10 +7,64 @@ export type Marketplace = {
   lanes: Lane[];
   route: string;
   hint: string;
+  repsGroup?: "marketplace" | "direct_shop" | "factory";
   search: (q: string) => string;
 };
 const enc = encodeURIComponent;
 export const marketplaces: Marketplace[] = [
+  {
+    id: "maden",
+    name: "MADEN",
+    domain: "maden365.com",
+    lanes: ["reps"],
+    route: "Direct / China",
+    hint: "Independent designs · single-pair shop",
+    repsGroup: "direct_shop",
+    search: (q) => `https://www.maden365.com/search?q=${enc(q)}`,
+  },
+  {
+    id: "novesta",
+    name: "NOVESTA Japan",
+    domain: "novesta.jp",
+    lanes: ["reps"],
+    route: "Direct / proxy",
+    hint: "Slovak footwear · Japanese storefront",
+    repsGroup: "direct_shop",
+    search: (q) => `https://novesta.jp/en/search?q=${enc(q)}`,
+  },
+  {
+    id: "madeinchina",
+    name: "Made-in-China",
+    domain: "made-in-china.com",
+    lanes: ["reps"],
+    route: "Factory inquiry",
+    hint: "Bulk offers · check minimum order",
+    repsGroup: "factory",
+    search: (q) =>
+      `https://www.google.com/search?q=${enc(`site:made-in-china.com ${q}`)}`,
+  },
+  {
+    id: "bona",
+    name: "Bona Shoes",
+    domain: "bonashoes.com",
+    lanes: ["reps"],
+    route: "Factory / China",
+    hint: "Footwear OEM · sample quote needed",
+    repsGroup: "factory",
+    search: (q) =>
+      `https://www.google.com/search?q=${enc(`site:bonashoes.com/product-catalog/ ${q}`)}`,
+  },
+  {
+    id: "huangxuan",
+    name: "Huangxuan",
+    domain: "mychonly.com",
+    lanes: ["reps"],
+    route: "Factory inquiry",
+    hint: "Custom footwear · verify MOQ",
+    repsGroup: "factory",
+    search: (q) =>
+      `https://www.google.com/search?q=${enc(`site:mychonly.com/oem-shoes/ ${q}`)}`,
+  },
   {
     id: "grailed",
     name: "Grailed",
@@ -144,9 +198,17 @@ export function marketplaceForUrl(raw: string) {
     return undefined;
   }
 }
-export function searchQuery(q: string, lane: Lane) {
-  return lane === "reps"
-    ? (queryVariants(parseIntent(q)).find((v) => v.language === "zh")?.text ??
-        q)
-    : q;
+export function searchQuery(q: string, lane: Lane, marketplace?: Marketplace) {
+  if (lane !== "reps") return q;
+  const variants = queryVariants(parseIntent(q));
+  if (
+    marketplace?.repsGroup === "direct_shop" ||
+    marketplace?.repsGroup === "factory"
+  ) {
+    return (
+      variants.find((v) => v.reason === "Similar-design supplier search")
+        ?.text ?? q
+    );
+  }
+  return variants.find((v) => v.language === "zh")?.text ?? q;
 }

@@ -43,6 +43,11 @@ import {
 import { marketplaces, searchQuery } from "@/lib/marketplaces";
 import { referenceListings } from "@/lib/reference-listings";
 import {
+  GatReferenceImage,
+  SourcingDirectory,
+} from "@/components/sourcing-directory";
+import { gatDemo } from "@/lib/sourcing-leads";
+import {
   recordEvidence,
   freshness,
   applySellerCorrection,
@@ -54,6 +59,7 @@ import {
   parseIntent,
   intentFields,
   queryVariants,
+  isGatQuery,
   type ItemIntent,
 } from "@/lib/item-intent";
 import type { SearchRun } from "@/lib/discovery/types";
@@ -65,7 +71,7 @@ import {
   type SearchResponse,
 } from "@/lib/finder-types";
 
-const initialQuery = "Rick Owens bias bootcut jeans";
+const initialQuery = gatDemo.query;
 const money = (n: number | null, currency = "USD") =>
   n === null
     ? "Price unavailable"
@@ -79,7 +85,7 @@ type Connections = { ebay: boolean; search: boolean; vision: boolean };
 export default function Finder() {
   const [query, setQuery] = useState(initialQuery),
     [searched, setSearched] = useState(initialQuery),
-    [lane, setLane] = useState<Lane>("legit");
+    [lane, setLane] = useState<Lane>("reps");
   const [listings, setListings] = useState<Listing[]>([]),
     [selected, setSelected] = useState<Listing | null>(null);
   const [manualListings, setManualListings] = useState<Listing[]>([]),
@@ -90,9 +96,9 @@ export default function Finder() {
   const [size, setSize] = useState("all"),
     [busy, setBusy] = useState(false),
     [message, setMessage] = useState(
-      "Search live sources, open a marketplace, or load the dated example collection below.",
+      "Search live sources or open a marketplace for additional results.",
     );
-  const [image, setImage] = useState<string | null>("/reference-jeans.png"),
+  const [image, setImage] = useState<string | null>(null),
     [imageName, setImageName] = useState("Your reference"),
     [visionBusy, setVisionBusy] = useState(false);
   const [connections, setConnections] = useState<Connections>({
@@ -116,6 +122,24 @@ export default function Finder() {
     Partial<ItemIntent["fields"]>
   >({});
   const target = parseIntent(query, targetFields);
+  function loadGatDemo() {
+    cancelSearch();
+    cancelIdentify();
+    uploadId.current++;
+    setImage(null);
+    setQuery(gatDemo.query);
+    setSearched(gatDemo.query);
+    setLane("reps");
+    setTargetFields({});
+    setListings([]);
+    setRun(null);
+    setPlatform("all");
+    setSize("all");
+    setBudget("");
+    setMessage(
+      "GAT supplier research is shown above. Search connected sources for additional indexed listings.",
+    );
+  }
   useEffect(() => {
     fetch("/api/status")
       .then((r) => r.json())
@@ -485,13 +509,14 @@ export default function Finder() {
               </TabsTrigger>
               <TabsTrigger value="reps">
                 <LayersIcon />
-                Reps<span className="tab-caption">Alternatives & proxies</span>
+                Reps
+                <span className="tab-caption">Direct shops & factories</span>
               </TabsTrigger>
             </TabsList>
             <span className="tab-note">
               {lane === "legit"
                 ? "Listed as authentic. Always verify the item."
-                : "Replica candidates. A marketplace is not an authenticity label."}
+                : "Similar designs, replica leads and supplier catalogs."}
             </span>
           </div>
         </Tabs>
@@ -510,6 +535,8 @@ export default function Finder() {
             >
               {image ? (
                 <img src={image} alt="Uploaded clothing reference" />
+              ) : isGatQuery(searched) ? (
+                <GatReferenceImage />
               ) : (
                 <ImagePlus size={44} />
               )}
@@ -534,7 +561,11 @@ export default function Finder() {
                 </button>
               )}
             </div>
-            <div className="reference-caption">{imageName}</div>
+            <div className="reference-caption">
+              {!image && isGatQuery(searched)
+                ? "Demo target · official product photo"
+                : imageName}
+            </div>
             {image === "/reference-jeans.png" ? (
               <>
                 <h2>Rick Owens</h2>
@@ -544,6 +575,24 @@ export default function Finder() {
                 <span className="small-label">
                   VISUAL MATCH TO RESEARCH · UNCONFIRMED
                 </span>
+              </>
+            ) : !image && isGatQuery(searched) ? (
+              <>
+                <h2>Maison Margiela GATs</h2>
+                <p className="reference-description">
+                  White leather · suede panels · honey gum sole
+                </p>
+                <a
+                  className="small-label"
+                  href={gatDemo.source}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  OFFICIAL TARGET REFERENCE ↗
+                </a>
+                <p className="reference-description">
+                  Upload your own photo to identify or search it.
+                </p>
               </>
             ) : (
               <p className="reference-description">
@@ -600,10 +649,10 @@ export default function Finder() {
               </div>
             </details>
             <div className="section-kicker">
-              <SlidersHorizontal size={14} /> REFINE RESULTS
+              <SlidersHorizontal size={14} /> REFINE LIVE RESULTS
             </div>
             <label className="field-label">
-              Waist size
+              Item size
               <Select value={size} onValueChange={setSize}>
                 <SelectTrigger className="filter-select">
                   <SelectValue />
@@ -669,15 +718,24 @@ export default function Finder() {
             </div>
           </aside>
           <section className="results-column" aria-label="Search results">
+            {lane === "reps" && (
+              <SourcingDirectory
+                key={searched}
+                query={searched}
+                onDemo={loadGatDemo}
+              />
+            )}
             <div className="results-heading">
               <div>
                 <div className="section-kicker">
-                  {lane === "legit" ? "THE SHORTLIST" : "THE ALTERNATIVE ROUTE"}
+                  {lane === "legit"
+                    ? "THE SHORTLIST"
+                    : "ADDITIONAL LIVE DISCOVERY"}
                 </div>
                 <h2>
                   {lane === "legit"
                     ? "Worth a closer look."
-                    : "Find the look, compare the cost."}
+                    : "Search the marketplaces."}
                 </h2>
               </div>
               <button
@@ -694,7 +752,7 @@ export default function Finder() {
               >
                 All marketplaces
               </button>
-              {sources.slice(0, lane === "legit" ? 7 : 3).map((s) => (
+              {sources.map((s) => (
                 <button
                   className={platform === s.name ? "chip active" : "chip"}
                   key={s.id}
@@ -707,7 +765,11 @@ export default function Finder() {
             <div className="result-meta">
               <span>
                 <strong>{results.length}</strong>{" "}
-                {results.length === 1 ? "listing" : "listings"}
+                {lane === "reps"
+                  ? "additional listings"
+                  : results.length === 1
+                    ? "listing"
+                    : "listings"}
                 {lowest && (
                   <>
                     {" "}
@@ -793,9 +855,10 @@ export default function Finder() {
               <button
                 className="reference-load"
                 onClick={() => {
-                  setQuery(initialQuery);
+                  setQuery("Rick Owens bias bootcut jeans");
                   cancelIdentify();
-                  setSearched(initialQuery);
+                  setSearched("Rick Owens bias bootcut jeans");
+                  setImage("/reference-jeans.png");
                   setTargetFields({});
                   setRun(null);
                   setPlatform("all");
@@ -859,7 +922,7 @@ export default function Finder() {
               {sources.map((s) => (
                 <a
                   key={s.id}
-                  href={s.search(searchQuery(searched, lane))}
+                  href={s.search(searchQuery(searched, lane, s))}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="marketplace-link"
