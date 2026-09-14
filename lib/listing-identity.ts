@@ -1,0 +1,3 @@
+import type { Listing } from "./finder-types";
+export function listingIdentity(raw:string){const url=new URL(raw);url.hash="";for(const name of [...url.searchParams.keys()])if(/^utm_|^(gclid|fbclid|_trksid|_trkparms|mkcid|mkevt|campid|toolid|customid)$/i.test(name))url.searchParams.delete(name);url.searchParams.sort();return url.href;}
+export function deduplicateListings(listings:Listing[]){const byId=new Map<string,Listing>();const quality=(l:Listing)=>Number(l.price!==null)*10+Object.values(l.evidence).filter(v=>v!==null).length;for(const listing of listings){const key=listingIdentity(listing.url);const prior=byId.get(key);if(!prior||quality(listing)>quality(prior))byId.set(key,listing);}return [...byId.values()];}

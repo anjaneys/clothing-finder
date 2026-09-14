@@ -1,0 +1,15 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import {scoreSeller,landedCost} from "../lib/scoring.ts";
+import {unknownEvidence} from "../lib/finder-types.ts";
+import {deduplicateListings,listingIdentity} from "../lib/listing-identity.ts";
+import type {Listing} from "../lib/finder-types.ts";
+test("unknown is different from zero and does not receive a fabricated score",()=>{assert.equal(scoreSeller(unknownEvidence).score,null);assert.equal(scoreSeller({...unknownEvidence,sold:0,active:0}).score,35);});
+test("zero sales and listings with a supported extreme discount is high risk",()=>{const r=scoreSeller({...unknownEvidence,sold:0,active:0},{price:100,median:500,count:3});assert.ok(r.score!==null&&r.score<=25);assert.equal(r.label,"High risk");});
+test("insufficient comparable sample cannot trigger a price penalty",()=>{assert.equal(scoreSeller({...unknownEvidence,sold:0,active:0},{price:10,median:500,count:2}).score,35);});
+test("established seller with no current inventory has no no-history penalty",()=>{assert.ok(scoreSeller({...unknownEvidence,sold:200,active:0}).score!>=75);});
+test("review volume matters and poor feedback lowers trust",()=>{const base={...unknownEvidence,sold:50,active:8};const one=scoreSeller({...base,reviews:1,positiveRate:1}).score!;const many=scoreSeller({...base,reviews:50,positiveRate:1}).score!;const poor=scoreSeller({...base,reviews:50,positiveRate:.5}).score!;assert.ok(many>one);assert.ok(poor<many-20);});
+test("missing fees do not silently become zero",()=>{assert.deepEqual(landedCost([100,0,null,5,0,0],1),{subtotal:105,total:null,missing:1});assert.deepEqual(landedCost([100,0,10,5,0,0],1),{subtotal:115,total:115,missing:0});});
+test("quoted conversion and invalid exchange rates",()=>{assert.equal(landedCost([10000,0,0,0,0,0],.01).total,landedCost([100,0,0,0,0,0],1).total);assert.equal(landedCost([100],0).total,null);assert.equal(landedCost([-1,100],1).total,null);});
+test("marketplace item identity preserves query IDs",()=>{assert.notEqual(listingIdentity("https://item.taobao.com/item.htm?id=1"),listingIdentity("https://item.taobao.com/item.htm?id=2"));assert.equal(listingIdentity("https://www.ebay.com/itm/123?utm_source=x"),"https://www.ebay.com/itm/123");});
+test("duplicate indexed page cannot overwrite richer API evidence",()=>{const base={url:"https://www.ebay.com/itm/123",evidence:{...unknownEvidence}};const api={...base,id:"api",price:300} as Listing;const web={...base,id:"web",price:null} as Listing;assert.equal(deduplicateListings([api,web])[0].id,"api");});
