@@ -127,7 +127,16 @@ Use the [source matrix](docs/RESEARCH.md#additional-marketplaces-and-buying-rout
 
 ## Recommended next implementation slice
 
-Activate and validate the **M6 hosted library**, then validate **M1 production provider access** and extend the **M5 supplier directory** beyond the GAT example using the same evidence and order-quantity requirements. Add destination-specific sample and single-pair quotes to **M4** before comparing delivered prices. The persistence integration is now implemented; cloud activation and broader visual matching remain open.
+Prioritize **hundreds to thousands of relevant offers per target** using the [retrieval scale design](docs/RETRIEVAL-SCALE.md). This changes the next delivery order across M1/M2/M5/M6; it does not claim that every item has thousands of available offers.
+
+- [ ] Connect and validate the M6 hosted Library and M1 production provider access/retention rights.
+- [ ] Add a versioned query plan with per-marketplace model aliases, spelling variants, confirmed style codes and validated language/region queries. Preserve exact-variant versus broader-model classifications.
+- [ ] Increase eBay page size with a compatible cursor contract; paginate/virtualize Finder cards and save accepted page deltas instead of repeatedly uploading the full collection.
+- [ ] Add durable cloud jobs, query checkpoints, a hosted queue consumer, shared provider budgets, and pause/resume/cancel. Completed pages must survive browser closure and worker restart.
+- [ ] Add approved inventories/feeds in order of measured unique relevant yield; enrich promising sellers/items selectively and retain unknown evidence elsewhere.
+- [ ] Measure 10,000-offer/100,000-observation capacity with full-count charts/export, responsive browsing and appropriate indexes. Keep capacity tests separate from real inventory/relevance evaluation.
+
+Query planning and capacity work can progress with fixtures before accounts are connected. Real cloud collection remains dependent on hosted activation and provider access. Destination-specific sample/single-pair quotes and broader supplier examples remain M4/M5 work after this collection foundation.
 
 ## Decisions to validate with real usage
 
