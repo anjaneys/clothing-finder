@@ -106,10 +106,11 @@ Use the [source matrix](docs/RESEARCH.md#additional-marketplaces-and-buying-rout
 
 ### M6 — Preserve useful work and surface changes
 
-**v0.5 implementation:** [hosted Supabase library](docs/DATABASE.md), private user access/RLS, idempotent observation imports, automatic saving while signed in, paginated data/history/export, delete controls, and currency/section-specific charts. An unsaved session preview works immediately. The user's hosted project is not connected yet; real save/reload validation is pending. Seller evidence and original image URLs are saved within normalized listing snapshots; uploaded-photo bytes and retrieval cursors are excluded.
+**v0.5 implementation:** [hosted Supabase library](docs/DATABASE.md), private user access/RLS, idempotent observation imports, automatic saving while signed in, paginated data/history/export, delete controls, and currency/section-specific charts. An unsaved session preview works immediately. The user's hosted Free project is connected and its migration and anonymous-access checks passed; real authenticated save/reload validation awaits application sign-in. Seller evidence and original image URLs are saved within normalized listing snapshots; uploaded-photo bytes and retrieval cursors are excluded.
 
 - [x] Implement and test hosted schema, import/read APIs, ownership isolation, immutable price/availability history and Library UI.
-- [ ] Connect the owner's cloud project, apply migration, and verify a real authenticated save followed by reload/sign-in.
+- [x] Connect the owner's cloud project, apply migration, verify table RLS and denied anonymous access, and restrict public sign-ups.
+- [ ] Verify a real authenticated save followed by reload/sign-in using the owner's application user.
 - [ ] Persist targets, listings, image references, evidence and saved comparisons in a database with export/delete controls.
 - [ ] Add price/availability history and user-configurable refresh schedules, respecting source budgets and access terms.
 - [ ] Notify on a meaningful match, price drop, seller-evidence change, removed listing or failed refresh requiring action. Do not spam unchanged checks.

@@ -4,7 +4,7 @@ A clothing discovery workspace with Legit and Reps views, title/image inputs, re
 
 [Cloud database setup](docs/DATABASE.md) · [Plan for thousands of results](docs/RETRIEVAL-SCALE.md) · [Roadmap](ROADMAP.md) · [GAT resale](docs/GAT-RESALE.md) · [GAT suppliers](docs/GAT-SOURCING.md) · [More marketplaces](docs/RESEARCH.md) · [CI](https://github.com/anjaneys/clothing-finder/actions/workflows/ci.yml)
 
-**Status: public Poshmark retrieval, resumable search, and cloud-ready Library implemented.** Poshmark works without an API key; eBay/Brave still need credentials and account testing. The Supabase integration is ready for your hosted project; no cloud database is connected yet. Research snapshots and source handoffs are labelled separately from live API results. The roadmap documents planned work, not capabilities already delivered.
+**Status: public Poshmark retrieval, resumable search, and Library implemented.** Poshmark works without an API key; eBay/Brave still need credentials and account testing. A hosted Supabase project is now connected in the maintainer's local setup, with its schema and anonymous-access restrictions verified; authenticated save/reload validation awaits application sign-in. Other checkouts need their own cloud configuration. Research snapshots and source handoffs are labelled separately from live API results. The roadmap documents planned work, not capabilities already delivered.
 
 ## Run
 

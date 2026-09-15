@@ -1,6 +1,6 @@
 # Collecting hundreds to thousands of results per item
 
-Design reviewed September 14, 2026. This is the next implementation plan, not a claim that these capabilities or inventory counts are already available. The current app is v0.5; its hosted database still needs connecting.
+Design reviewed September 14, 2026. This is the next implementation plan, not a claim that these capabilities or inventory counts are already available. The current app is v0.5; its hosted database is now connected in the maintainer's setup, with authenticated save/reload validation awaiting application sign-in.
 
 ## Outcome
 

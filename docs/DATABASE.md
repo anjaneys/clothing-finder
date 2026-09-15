@@ -2,7 +2,7 @@
 
 Version 0.5 adds a hosted Supabase/PostgreSQL integration and **Library & data** workspace. The code and SQL migration live in GitHub. Saved listing records live in the connected cloud database, not a local database file. Without a configured project, the app offers an explicitly unsaved session preview; it never silently falls back to SQLite, IndexedDB, localStorage, or JSON files.
 
-The integration is implemented and tested against PostgreSQL in memory. **A real Supabase project is not provisioned or connected in this checkout yet.** Account login, hosted migration, and an authenticated save/reload check remain required to activate it.
+The integration is implemented and tested against PostgreSQL in memory. **The maintainer's local setup now connects to a provisioned Free Supabase project in East US (North Virginia).** The initial migration was applied through the SQL Editor. All three Library tables have row-level security enabled, and anonymous REST table reads and Library RPC calls were verified denied. The first application user's authenticated save/reload check still requires application sign-in. Other checkouts need their own connection settings; project keys and user details are not included in this repository.
 
 ## Connect your project
 
@@ -16,7 +16,7 @@ The integration is implemented and tested against PostgreSQL in memory. **A real
    ```
 
    Do not use a secret or `service_role` key. The app rejects those from its browser configuration. The URL and publishable key identify the project; the user's authenticated JWT and row-level security control data access. [Supabase API-key guidance](https://supabase.com/docs/guides/getting-started/api-keys)
-4. In Supabase **Authentication → Users**, create an application user with an email and password. This is distinct from signing into the Supabase administration dashboard. For this personal setup, create the user directly rather than exposing public sign-up.
+4. In Supabase **Authentication → Users → Add user → Create new user**, create an application user with an email and password and leave **Auto confirm user** checked. This sends no invitation or confirmation email. This user is distinct from signing into the Supabase administration dashboard with GitHub. For this personal setup, disable **Allow new users to sign up** under **Authentication → Sign In / Providers**; keep anonymous sign-ins disabled. These private registration settings were applied to the maintainer's project. Enter passwords directly in the user-creation/sign-in screens, not in repository files or chat.
 5. Restart the app, open **Library & data**, and sign in with that application user. Run a finder search. Completed results automatically save while the user is signed in unless **Save completed searches automatically** is unchecked. **Save session** retries or explicitly saves the current collection.
 6. Switch to **Saved in cloud**. Verify its count and chart totals, reload the app, sign in again, and verify the saved records remain. Authentication tokens stay in tab memory; closing/reloading the tab requires signing in again, but it does not delete cloud records.
 
@@ -66,4 +66,4 @@ The tests run the actual migration in **PGlite PostgreSQL in RAM**, with separat
 
 Run `npm run test:db` for those tests. The legacy D1 scaffold is unused and has no binding enabled; it is not the Library database. Do not run a local Supabase/Docker database unless you explicitly want one for a different workflow.
 
-Real hosted connection/save/reload validation remains pending the user's project. Scheduled refreshes, alerts, backups/retention automation, richer seller entities, general image storage, and spend quotas for a publicly deployed service remain roadmap work. The new library protects its own data through Supabase Auth/RLS; it does not turn the existing search endpoints into a fully secured multi-user deployment.
+Hosted provisioning, connection configuration, migration and anonymous-access checks are complete for the maintainer's setup. Authenticated save/reload validation remains pending the application user's sign-in. Scheduled refreshes, alerts, backups/retention automation, richer seller entities, general image storage, and spend quotas for a publicly deployed service remain roadmap work. The new library protects its own data through Supabase Auth/RLS; it does not turn the existing search endpoints into a fully secured multi-user deployment.
